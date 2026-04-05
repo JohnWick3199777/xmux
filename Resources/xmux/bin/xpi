@@ -1,9 +1,10 @@
 #!/bin/sh
-# xmux pi wrapper
+# xmux xpi launcher
 #
 # When running inside an xmux terminal (XMUX_RESOURCES_DIR is set):
-#   - logs the normalized pi command line via the xmux CLI
-#   - injects an xmux event-forwarding pi extension so pi events are mirrored to XMUX_PORT
+#   - logs the normalized xpi command line via the xmux CLI
+#   - injects the bundled xmux xpi event-forwarding extension so pi events are mirrored to XMUX_PORT
+#   - launches the real pi binary with the xmux extension attached
 #
 # Outside xmux, passes through to the real pi binary unchanged.
 # Never breaks normal pi usage.
@@ -47,15 +48,15 @@ if [ -z "$XMUX_RESOURCES_DIR" ]; then
     exec "$_real_pi" "$@"
 fi
 
-# Log the actual pi command being launched.
-_command="pi"
+# Log the actual xpi command being launched.
+_command="xpi"
 for _arg in "$@"; do
     _command="$_command $(_quote_arg "$_arg")"
 done
-_log_entry="$(printf 'pi.command\t%s' "$_command")"
+_log_entry="$(printf 'xpi.command\t%s' "$_command")"
 command -v xmux >/dev/null 2>&1 && xmux log add "$_log_entry" >/dev/null 2>&1 || true
 
-_extension="${XMUX_RESOURCES_DIR}/extensions/pi-xmux-events.ts"
+_extension="${XMUX_RESOURCES_DIR}/extensions/xpi-xmux-events.ts"
 if [ -f "$_extension" ]; then
     exec "$_real_pi" --extension "$_extension" "$@"
 fi

@@ -37,9 +37,13 @@ targets:
           if [ -d "${SRCROOT}/Resources/terminfo" ]; then
             cp -R "${SRCROOT}/Resources/terminfo" "$RESOURCES_DIR/"
           fi
-          # Copy xmux-specific wrappers, hook config, and shell integration layers
+          # Copy xmux-specific launchers, hook config, and shell integration layers.
+          # Remove the old destination first so deleted files don't linger in the app bundle.
           if [ -d "${SRCROOT}/Resources/xmux" ]; then
+            rm -rf "$RESOURCES_DIR/xmux"
             cp -R "${SRCROOT}/Resources/xmux" "$RESOURCES_DIR/"
+            find "$RESOURCES_DIR/xmux/bin" -type f -exec chmod +x {} \; 2>/dev/null || true
+            find "$RESOURCES_DIR/xmux/shell-integration" -type f -exec chmod +r {} \; 2>/dev/null || true
           fi
     info:
       path: Sources/XmuxApp/Info.plist

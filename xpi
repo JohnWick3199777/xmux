@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EVENT_TAP_EXTENSION="$SCRIPT_DIR/pi-event-tap-extension.ts"
+PI_BIN="${XPI_PI_BIN:-/opt/homebrew/bin/pi}"
+
+if [[ ! -x "$PI_BIN" ]]; then
+  echo "Missing pi binary: $PI_BIN" >&2
+  exit 1
+fi
+
+if [[ ! -f "$EVENT_TAP_EXTENSION" ]]; then
+  echo "Missing event tap extension: $EVENT_TAP_EXTENSION" >&2
+  exit 1
+fi
+
+if [[ -n "${XPI_EVENTS_FILE:-}" && -z "${PI_TAP_EVENTS_FILE:-}" ]]; then
+  export PI_TAP_EVENTS_FILE="$XPI_EVENTS_FILE"
+fi
+
+if [[ -z "${PI_TAP_EVENTS_FILE:-}" ]]; then
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  export PI_TAP_EVENTS_FILE="${TMPDIR:-/tmp}/xpi-events-${timestamp}-$$.jsonl"
+fi
+
+mkdir -p "$(dirname "$PI_TAP_EVENTS_FILE")"
+
+if [[ "${PI_TAP_EVENTS_APPEND:-0}" != "1" ]]; then
+  : > "$PI_TAP_EVENTS_FILE"
+fi
+
+echo "xpi event tap file: $PI_TAP_EVENTS_FILE" >&2
+if [[ -n "${XMUX_PORT:-}" ]]; then
+  echo "xpi xmux port: $XMUX_PORT" >&2
+fi
+
+exec "$PI_BIN" -e "$EVENT_TAP_EXTENSION" "$@"

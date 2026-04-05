@@ -43,7 +43,7 @@ final class XmuxLog {
     private func ensureBinScriptsExecutable() {
         guard let rsrc = resourcesDir else { return }
         let binDir = (rsrc as NSString).appendingPathComponent("bin")
-        let scripts = ["claude", "pi", "xmux-claude-hook"]
+        let scripts = ["pi"]
         for script in scripts {
             let scriptPath = (binDir as NSString).appendingPathComponent(script)
             try? FileManager.default.setAttributes(

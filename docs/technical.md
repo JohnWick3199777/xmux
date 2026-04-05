@@ -223,10 +223,10 @@ Sources/XmuxApp/
 Resources/xmux/
   bin/
     claude                        Claude wrapper — logs through `xmux log add`
-    pi                            Pi wrapper — logs launches and injects xmux pi event forwarding
+    xpi                           xpi launcher — logs launches and injects xmux pi event forwarding
     xmux-claude-hook              Claude hook bridge — logs through `xmux log add`
   extensions/
-    pi-xmux-events.ts             Pi extension — forwards pi lifecycle/stream/tool events to `xmux.port`
+    xpi-xmux-events.ts            xpi extension — forwards pi lifecycle/stream/tool events to `xmux.port`
   shell-integration/zsh/
     .zshenv                       ZDOTDIR injection entry point (chains to user's dotfiles)
     xmux-integration              preexec hook — calls `xmux log add` and emits `command.start`
@@ -257,10 +257,10 @@ Resources/
     xmux-integration              preexec hook — logs commands through the xmux CLI
   xmux/bin/
     claude                        wrapper that logs Claude invocations through xmux
-    pi                            wrapper that injects the xmux pi event-forwarding extension
+    xpi                           launcher that injects the xmux pi event-forwarding extension
     xmux-claude-hook              Claude lifecycle hook bridge
   xmux/extensions/
-    pi-xmux-events.ts             pi extension that forwards pi events to xmux.port
+    xpi-xmux-events.ts            xpi extension that forwards pi events to xmux.port
 
 cli/
   pyproject.toml                  uv tool project definition for `uv tool install ./cli`

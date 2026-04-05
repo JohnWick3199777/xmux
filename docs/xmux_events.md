@@ -140,6 +140,7 @@ Currently documented and emitted:
 - `command.start`
 - `xmux.session.start`
 - `xmux.session.end`
+- `pi.resources_discover`
 - `pi.session_start`
 - `pi.session_before_switch`
 - `pi.session_before_fork`
@@ -159,11 +160,17 @@ Currently documented and emitted:
 - `pi.tool_execution_start`
 - `pi.tool_execution_update`
 - `pi.tool_execution_end`
+- `pi.context`
+- `pi.before_provider_request`
 - `pi.model_select`
+- `pi.tool_call`
+- `pi.tool_result`
+- `pi.user_bash`
+- `pi.input`
 
 ### Pi forwarded events
 
-When `pi` is launched from an xmux-managed shell, the injected `Resources/xmux/bin/pi` wrapper adds the bundled `Resources/xmux/extensions/pi-xmux-events.ts` extension.
+When `xpi` is launched from an xmux-managed shell, the injected `Resources/xmux/bin/xpi` launcher adds the bundled `Resources/xmux/extensions/xpi-xmux-events.ts` extension.
 
 That extension forwards pi lifecycle, streaming, and tool execution events to `xmux.port` as JSON-RPC notifications whose method name is `pi.<event-type>`.
 

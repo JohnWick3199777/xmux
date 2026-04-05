@@ -2,6 +2,10 @@
 
 This document describes the `pi.*` events forwarded into `xmux.port`, the payload shape, and the recommended mapping for the Sessions panel.
 
+In this repo, `./xpi` is the xmux-friendly pi launcher.
+Inside the app bundle, xmux shells call `Resources/xmux/bin/xpi`.
+`xpi` keeps the stock pi TUI, injects the pi event tap extension, writes a local JSONL event tap, and forwards all subscribable extension events to `xmux.port` when `XMUX_PORT` is present.
+
 ## Forwarded event envelope
 
 When `pi` is launched from an xmux-managed shell, the bundled wrapper injects the xmux forwarding extension.
@@ -75,8 +79,9 @@ pi.message_end
 pi.agent_end
 ```
 
-Additional session-management events may also appear:
+Additional session-management and low-level events may also appear:
 
+- `pi.resources_discover`
 - `pi.session_before_switch`
 - `pi.session_before_fork`
 - `pi.session_before_compact`
@@ -84,7 +89,13 @@ Additional session-management events may also appear:
 - `pi.session_before_tree`
 - `pi.session_tree`
 - `pi.session_shutdown`
+- `pi.context`
+- `pi.before_provider_request`
 - `pi.model_select`
+- `pi.tool_call`
+- `pi.tool_result`
+- `pi.user_bash`
+- `pi.input`
 
 Note: in real event streams, `pi.session_shutdown` is not guaranteed to be the final pi event.
 Trailing notifications such as `pi.message_end`, `pi.turn_end`, or `pi.agent_end` may still arrive afterward.

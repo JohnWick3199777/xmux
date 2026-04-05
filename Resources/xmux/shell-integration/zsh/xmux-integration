@@ -1,7 +1,20 @@
-# xmux zsh shell integration — command logger.
+# xmux zsh shell integration — command logger and helper command aliases.
 # Sourced once per interactive session via the ZDOTDIR injection mechanism.
 
 [[ -o interactive ]] || return 0
+
+# Shell functions beat PATH order, so use them to ensure xmux wrappers win
+# even if the user's shell config later rewrites PATH.
+if [[ -n "${XMUX_RESOURCES_DIR:-}" ]]; then
+    if [[ -x "${XMUX_RESOURCES_DIR}/bin/xpi" ]]; then
+        xpi() {
+            command "${XMUX_RESOURCES_DIR}/bin/xpi" "$@"
+        }
+    fi
+    rehash 2>/dev/null || true
+fi
+
+# Logging hooks require the standalone xmux CLI.
 (( $+commands[xmux] )) || return 0
 (( ! $+functions[_xmux_preexec] )) || return 0  # already loaded
 
@@ -20,22 +33,6 @@ _xmux_preexec() {
             command.start >/dev/null 2>&1 || true
     fi
 }
-
-# Shell functions beat PATH order, so use them to ensure xmux wrappers win
-# even if the user's shell config later rewrites PATH.
-if [[ -n "${XMUX_RESOURCES_DIR:-}" ]]; then
-    if [[ -x "${XMUX_RESOURCES_DIR}/bin/claude" ]]; then
-        claude() {
-            command "${XMUX_RESOURCES_DIR}/bin/claude" "$@"
-        }
-    fi
-    if [[ -x "${XMUX_RESOURCES_DIR}/bin/pi" ]]; then
-        pi() {
-            command "${XMUX_RESOURCES_DIR}/bin/pi" "$@"
-        }
-    fi
-    rehash 2>/dev/null || true
-fi
 
 typeset -ag preexec_functions
 preexec_functions+=(_xmux_preexec)
