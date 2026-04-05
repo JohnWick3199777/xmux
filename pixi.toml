@@ -1,0 +1,87 @@
+[workspace]
+name = "xmux"
+version = "0.1.0"
+description = "Native macOS terminal built on libghostty"
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+zig = ">=0.13"
+
+[tasks]
+# ── GhosttyKit ───────────────────────────────────────────────────────────────
+
+# Build GhosttyKit.xcframework from Ghostty source.
+# Point GHOSTTY_SRC at your local ghostty clone, or override via env.
+build-ghostty = { cmd = """
+  bash -c '
+    set -e
+    GHOSTTY_SRC="${GHOSTTY_SRC:-$HOME/ghostty}"
+    if [ ! -d "$GHOSTTY_SRC" ]; then
+      echo "ERROR: Ghostty source not found at $GHOSTTY_SRC"
+      echo "Clone it: git clone https://github.com/ghostty-org/ghostty $GHOSTTY_SRC"
+      exit 1
+    fi
+    cd "$GHOSTTY_SRC"
+    zig build -Doptimize=ReleaseFast -Demit-xcframework -Dxcframework-target=native
+    mkdir -p "$PIXI_PROJECT_ROOT/Frameworks"
+    rm -rf "$PIXI_PROJECT_ROOT/Frameworks/GhosttyKit.xcframework"
+    cp -R macos/GhosttyKit.xcframework "$PIXI_PROJECT_ROOT/Frameworks/"
+    # Copy shell integration resources
+    mkdir -p "$PIXI_PROJECT_ROOT/Resources/ghostty"
+    cp -R zig-out/share/ghostty/shell-integration "$PIXI_PROJECT_ROOT/Resources/ghostty/"
+    cp -R zig-out/share/terminfo "$PIXI_PROJECT_ROOT/Resources/"
+    echo "GhosttyKit.xcframework built and copied."
+  '
+""", description = "Build GhosttyKit.xcframework from Ghostty source" }
+
+ensure-ghostty = { cmd = """
+  bash -c '
+    if [ -d "$PIXI_PROJECT_ROOT/Frameworks/GhosttyKit.xcframework" ]; then
+      echo "GhosttyKit.xcframework present."
+    else
+      echo "GhosttyKit.xcframework missing — building..."
+      pixi run build-ghostty
+    fi
+  '
+""", description = "Ensure GhosttyKit.xcframework exists (build if missing)" }
+
+# ── Xcode project ────────────────────────────────────────────────────────────
+
+generate = { cmd = "xcodegen generate --spec project.yml", description = "Regenerate Xcode project from project.yml" }
+
+generate-if-needed = { cmd = """
+  bash -c '
+    if [ ! -f Xmux.xcodeproj/project.pbxproj ] || [ project.yml -nt Xmux.xcodeproj/project.pbxproj ]; then
+      xcodegen generate --spec project.yml
+    else
+      echo "Xcode project up to date."
+    fi
+  '
+""", description = "Regenerate Xcode project only when project.yml is newer" }
+
+# ── Build & run ──────────────────────────────────────────────────────────────
+
+build = { cmd = """
+  xcodebuild \
+    -project Xmux.xcodeproj \
+    -scheme Xmux \
+    -configuration Debug \
+    build \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO
+""", depends-on = ["ensure-ghostty", "generate-if-needed"],
+description = "Build Xmux (Debug)" }
+
+run = { cmd = """
+  bash -c '
+    set -e
+    BUILT=$(xcodebuild -project Xmux.xcodeproj -scheme Xmux -configuration Debug \
+      -showBuildSettings 2>/dev/null \
+      | grep "^ *BUILT_PRODUCTS_DIR" | head -1 | sed "s/.*= //")
+    open "$BUILT/Xmux.app"
+  '
+""", depends-on = ["build"], description = "Build (if needed) and launch Xmux.app" }
+
+distclean = { cmd = "rm -rf .build Xmux.xcodeproj DerivedData build && echo 'distclean complete'",
+description = "Remove all build artefacts for a pristine rebuild" }

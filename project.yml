@@ -1,0 +1,50 @@
+name: Xmux
+options:
+  bundleIdPrefix: com.itamarbarron
+  deploymentTarget:
+    macOS: "15.0"
+settings:
+  SWIFT_VERSION: "6"
+  MARKETING_VERSION: "0.1"
+  CURRENT_PROJECT_VERSION: "1"
+  # CODE_SIGN_STYLE: Automatic
+  # DEVELOPMENT_TEAM: YOUR_TEAM_ID  # Uncomment and set for signing
+
+targets:
+  Xmux:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/XmuxApp
+    dependencies:
+      - framework: Frameworks/GhosttyKit.xcframework
+        embed: false
+      - sdk: Carbon.framework
+      - sdk: Metal.framework
+      - sdk: CoreText.framework
+    preBuildScripts:
+      - name: Copy Ghostty Resources
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          RESOURCES_DIR="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
+          # Copy shell integration so ghostty can inject into bash/zsh/fish
+          if [ -d "${SRCROOT}/Resources/ghostty/shell-integration" ]; then
+            mkdir -p "$RESOURCES_DIR/ghostty"
+            cp -R "${SRCROOT}/Resources/ghostty/shell-integration" "$RESOURCES_DIR/ghostty/"
+          fi
+          # Copy terminfo — the sentinel file that tells libghostty where resources live
+          if [ -d "${SRCROOT}/Resources/terminfo" ]; then
+            cp -R "${SRCROOT}/Resources/terminfo" "$RESOURCES_DIR/"
+          fi
+    info:
+      path: Sources/XmuxApp/Info.plist
+    settings:
+      PRODUCT_NAME: Xmux
+      PRODUCT_BUNDLE_IDENTIFIER: com.itamarbarron.Xmux
+      OTHER_LDFLAGS: "-lc++"
+      # GhosttyKit is arm64-only
+      ARCHS: arm64
+      VALID_ARCHS: arm64
+      CODE_SIGNING_REQUIRED: "NO"
+      CODE_SIGNING_ALLOWED: "YES"

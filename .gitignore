@@ -1,0 +1,8 @@
+Frameworks/
+Xmux.xcodeproj/
+DerivedData/
+build/
+.build/
+*.xcodeproj
+excalidraw.log
+.DS_Store
