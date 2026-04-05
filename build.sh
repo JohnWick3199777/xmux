@@ -76,3 +76,12 @@ else
   echo "  $APP_PATH" >&2
   exit 1
 fi
+
+if pgrep -x "$PROJECT_NAME" &>/dev/null; then
+  echo "Killing running $PROJECT_NAME..."
+  pkill -x "$PROJECT_NAME"
+  sleep 0.5
+fi
+
+echo "Launching $APP_PATH..."
+open "$APP_PATH"

@@ -40,28 +40,35 @@ struct LeftPanel: View {
     }
 }
 
+#Preview("Left Panel") { LeftPanel() }
+
 // MARK: - Right Panel
+
+private let terminalBackground = Color(red: 40/255, green: 44/255, blue: 52/255)
 
 struct RightPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Inspector")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-            Divider()
-
             List {
                 Label("Environment", systemImage: "info.circle")
+                    .frame(height: 20)
+                    .listRowBackground(terminalBackground)
                 Label("Processes", systemImage: "cpu")
+                    .frame(height: 20)
+                    .listRowBackground(terminalBackground)
                 Label("History", systemImage: "clock")
+                    .frame(height: 20)
+                    .listRowBackground(terminalBackground)
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(terminalBackground)
 
             Spacer()
         }
+        .background(terminalBackground)
         .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
     }
 }
+
+#Preview("Right Panel") { RightPanel() }
