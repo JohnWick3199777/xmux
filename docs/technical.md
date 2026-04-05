@@ -153,7 +153,7 @@ Example:
 
 ### How it works
 
-**App startup** — `XmuxLog.setup()` creates `~/.xmux/` and `~/.xmux/xmux.log` if they do not exist. `XmuxEventPort.setup()` reserves `~/.xmux/xmux.port` and starts the local Unix-domain socket listener for live events. Failures are silent so missing log or socket permissions never affect the app.
+**App startup** — `XmuxLog.setup()` creates `~/.xmux/` and `~/.xmux/xmux.log` if they do not exist. `XmuxEventPort.setup()` reserves `~/.xmux/xmux.port`, creates `~/.xmux/xmux.events.log`, and starts the local Unix-domain socket listener for live events. Failures are silent so missing log or socket permissions never affect the app.
 
 **Surface creation** — `GhosttyApp.newSurface` injects the following env vars into every spawned shell process via `ghostty_surface_config_s.env_vars`:
 
@@ -195,7 +195,7 @@ The app also emits its own session lifecycle notifications on the same transport
 
 ## xmux.port — live JSON-RPC event stream
 
-`xmux.port` is a Unix-domain socket at `~/.xmux/xmux.port`. The app accepts newline-delimited JSON messages on that socket, keeps a small in-memory ring buffer, mirrors those events into the live panel under the terminal, and forwards them to any `xmux event show` subscribers.
+`xmux.port` is a Unix-domain socket at `~/.xmux/xmux.port`. The app accepts newline-delimited JSON messages on that socket, appends each accepted line to `~/.xmux/xmux.events.log` as `<ISO 8601 UTC timestamp>\t<raw JSON>`, keeps a small in-memory ring buffer, mirrors those events into the live panel under the terminal, and forwards them to any `xmux event show` subscribers.
 
 The intended shape is JSON-RPC notifications or requests, for example:
 

@@ -11,11 +11,12 @@ struct XmuxEventSnapshot {
     let lines: [XmuxEventLine]
 }
 
-/// Manages the `xmux.port` Unix socket and an in-memory ring buffer of recent events.
+/// Manages the `xmux.port` Unix socket, an in-memory ring buffer, and a durable events log.
 final class XmuxEventPort: @unchecked Sendable {
     static let shared = XmuxEventPort()
 
     private(set) var path: String?
+    private(set) var eventsLogPath: String?
 
     private let listenQueue = DispatchQueue(label: "xmux.event-port.listen")
     private let clientQueue = DispatchQueue(label: "xmux.event-port.clients", attributes: .concurrent)
@@ -32,6 +33,7 @@ final class XmuxEventPort: @unchecked Sendable {
     func setup() {
         let dir = (NSHomeDirectory() as NSString).appendingPathComponent(".xmux")
         let socketPath = (dir as NSString).appendingPathComponent("xmux.port")
+        let eventsPath = (dir as NSString).appendingPathComponent("xmux.events.log")
 
         do {
             try FileManager.default.createDirectory(
@@ -39,7 +41,11 @@ final class XmuxEventPort: @unchecked Sendable {
                 withIntermediateDirectories: true,
                 attributes: nil
             )
+            if !FileManager.default.fileExists(atPath: eventsPath) {
+                FileManager.default.createFile(atPath: eventsPath, contents: nil)
+            }
             path = socketPath
+            eventsLogPath = eventsPath
         } catch {
             return
         }
@@ -222,10 +228,12 @@ final class XmuxEventPort: @unchecked Sendable {
     private func record(_ line: String) {
         let payload = "\(line)\n"
         let clientFDs = stateQueue.sync(flags: .barrier) {
-            lines.append(XmuxEventLine(timestamp: Date(), raw: line))
+            let timestamp = Date()
+            lines.append(XmuxEventLine(timestamp: timestamp, raw: line))
             if lines.count > maxLines {
                 lines.removeFirst(lines.count - maxLines)
             }
+            appendToEventsLog(line, timestamp: timestamp)
             return Array(self.clientFDs)
         }
 
@@ -234,6 +242,37 @@ final class XmuxEventPort: @unchecked Sendable {
                 unregisterClient(clientFD)
             }
         }
+    }
+
+    private func appendToEventsLog(_ line: String, timestamp: Date) {
+        guard let eventsLogPath, let data = serializedEventsLogLine(line, timestamp: timestamp) else {
+            return
+        }
+
+        if !FileManager.default.fileExists(atPath: eventsLogPath) {
+            FileManager.default.createFile(atPath: eventsLogPath, contents: nil)
+        }
+
+        let url = URL(fileURLWithPath: eventsLogPath)
+        guard let handle = try? FileHandle(forWritingTo: url) else {
+            return
+        }
+        defer { try? handle.close() }
+
+        do {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+        } catch {
+            return
+        }
+    }
+
+    private func serializedEventsLogLine(_ line: String, timestamp: Date) -> Data? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let stamp = formatter.string(from: timestamp)
+        return "\(stamp)\t\(line)\n".data(using: .utf8)
     }
 
     private func writeAll(_ string: String, to clientFD: Int32) -> Bool {

@@ -6,11 +6,13 @@ Xmux now has a live event transport alongside `xmux.log`.
 
 - `xmux.log` is the append-only human-readable command log.
 - `xmux.port` is the live machine-readable event stream.
+- `xmux.events.log` is the durable append-only archive of all accepted `xmux.port` events.
 
 The intent is:
 
 - `xmux.log` for durable command history
 - `xmux.port` for realtime structured events
+- `xmux.events.log` for durable structured event history
 
 ## Transport
 
@@ -91,7 +93,7 @@ xmux event show --once
 
 The app-side event system has three parts:
 
-1. `XmuxEventPort` starts the Unix socket listener and keeps a small in-memory ring buffer of recent events.
+1. `XmuxEventPort` starts the Unix socket listener, appends every accepted event to `~/.xmux/xmux.events.log`, and keeps a small in-memory ring buffer of recent events.
 2. `XmuxEventPanel` renders that ring buffer in the UI.
 3. `ContentView` places the event panel beside the live log panel under the main terminal.
 
@@ -179,7 +181,8 @@ Example events:
 
 ## Design Notes
 
-- `xmux.log` remains the safer fallback for durable inspection.
+- `xmux.log` remains the durable human-readable command history.
+- `xmux.events.log` is the durable structured event history.
 - `xmux.port` is intentionally realtime and lightweight.
 - The app tolerates failures silently so socket issues do not break terminal startup or shell execution.
 - The event transport is local to the app process and intended for xmux-managed shells and local tooling.
