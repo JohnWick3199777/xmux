@@ -9,6 +9,7 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
     nonisolated(unsafe) private(set) var surface: ghostty_surface_t?
     private var markedText = NSMutableAttributedString()
     private var keyTextAccumulator: [String]?
+    private var lastPerformKeyEvent: TimeInterval?
     private var contentSize: CGSize = .zero
 
     /// The UUID used by TerminalRepresentable to look up this view.
@@ -125,23 +126,109 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
 
     // MARK: - Keyboard
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown else { return false }
+        guard let surface else { return false }
+        guard let firstResponder = window?.firstResponder as? NSView,
+              firstResponder === self || firstResponder.isDescendant(of: self) else { return false }
+
+        if isBindingEvent(event, surface: surface) {
+            keyDown(with: event)
+            return true
+        }
+
+        let equivalent: String
+        switch event.charactersIgnoringModifiers {
+        case "\r":
+            guard event.modifierFlags.contains(.control) else { return false }
+            equivalent = "\r"
+
+        case "/":
+            guard event.modifierFlags.contains(.control),
+                  event.modifierFlags.isDisjoint(with: [.shift, .command, .option]) else {
+                return false
+            }
+            equivalent = "_"
+
+        default:
+            if event.timestamp == 0 { return false }
+
+            if !event.modifierFlags.contains(.command) &&
+                !event.modifierFlags.contains(.control) {
+                lastPerformKeyEvent = nil
+                return false
+            }
+
+            if let lastPerformKeyEvent {
+                self.lastPerformKeyEvent = nil
+                if lastPerformKeyEvent == event.timestamp {
+                    equivalent = event.characters ?? ""
+                    break
+                }
+            }
+
+            lastPerformKeyEvent = event.timestamp
+            return false
+        }
+
+        guard let finalEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: event.locationInWindow,
+            modifierFlags: event.modifierFlags,
+            timestamp: event.timestamp,
+            windowNumber: event.windowNumber,
+            context: nil,
+            characters: equivalent,
+            charactersIgnoringModifiers: equivalent,
+            isARepeat: event.isARepeat,
+            keyCode: event.keyCode
+        ) else { return false }
+
+        keyDown(with: finalEvent)
+        return true
+    }
+
+    override func doCommand(by selector: Selector) {
+        if let lastPerformKeyEvent,
+           let current = NSApp.currentEvent,
+           lastPerformKeyEvent == current.timestamp {
+            NSApp.sendEvent(current)
+            return
+        }
+
+        // Prevent AppKit from beeping on terminal-editing commands
+        // like deleteBackward: that should remain terminal input.
+    }
+
     override func keyDown(with event: NSEvent) {
-        guard surface != nil else { interpretKeyEvents([event]); return }
+        guard let surface else { interpretKeyEvents([event]); return }
         let action: ghostty_input_action_e = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+        let translationEvent = Self.translatedEvent(for: event, surface: surface)
         let markedBefore = markedText.length > 0
         keyTextAccumulator = []
         defer { keyTextAccumulator = nil }
-        interpretKeyEvents([event])
+
+        lastPerformKeyEvent = nil
+        interpretKeyEvents([translationEvent])
         syncPreedit(clearIfNeeded: markedBefore)
+
         if let acc = keyTextAccumulator, !acc.isEmpty {
-            for text in acc { _ = sendKey(action, event: event, text: text) }
+            for text in acc {
+                _ = keyAction(action, event: event, translationEvent: translationEvent, text: text)
+            }
         } else {
-            _ = sendKey(action, event: event, text: Self.filteredChars(event), composing: markedText.length > 0 || markedBefore)
+            _ = keyAction(
+                action,
+                event: event,
+                translationEvent: translationEvent,
+                text: Self.textForKeyEvent(translationEvent),
+                composing: markedText.length > 0 || markedBefore
+            )
         }
     }
 
     override func keyUp(with event: NSEvent) {
-        _ = sendKey(GHOSTTY_ACTION_RELEASE, event: event)
+        _ = keyAction(GHOSTTY_ACTION_RELEASE, event: event)
     }
 
     override func flagsChanged(with event: NSEvent) {
@@ -157,33 +244,45 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
         }
         let mods = Self.ghosttyMods(event.modifierFlags)
         let isPress = mods.rawValue & modBit != 0
-        _ = sendKey(isPress ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE, event: event)
+        _ = keyAction(isPress ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE, event: event)
     }
 
     @discardableResult
-    private func sendKey(
+    private func keyAction(
         _ action: ghostty_input_action_e,
         event: NSEvent,
+        translationEvent: NSEvent? = nil,
         text: String? = nil,
         composing: Bool = false
     ) -> Bool {
         guard let surface else { return false }
-        let mods = Self.ghosttyMods(event.modifierFlags)
-        let keycode = Self.ghosttyKeycode(event.keyCode).rawValue
-        if let text, !text.isEmpty {
+        var input = Self.ghosttyKeyEvent(
+            action,
+            event: event,
+            translationMods: translationEvent?.modifierFlags
+        )
+        input.composing = composing
+
+        if let text,
+           !text.isEmpty,
+           let first = text.utf8.first,
+           first >= 0x20 {
             return text.withCString { ptr in
-                let input = ghostty_input_key_s(
-                    action: action, mods: mods, consumed_mods: ghostty_input_mods_e(rawValue: 0),
-                    keycode: keycode, text: ptr, unshifted_codepoint: 0, composing: composing
-                )
+                input.text = ptr
                 return ghostty_surface_key(surface, input)
             }
         }
-        let input = ghostty_input_key_s(
-            action: action, mods: mods, consumed_mods: ghostty_input_mods_e(rawValue: 0),
-            keycode: keycode, text: nil, unshifted_codepoint: 0, composing: composing
-        )
         return ghostty_surface_key(surface, input)
+    }
+
+    private func isBindingEvent(_ event: NSEvent, surface: ghostty_surface_t) -> Bool {
+        var input = Self.ghosttyKeyEvent(GHOSTTY_ACTION_PRESS, event: event)
+        var flags = ghostty_binding_flags_e(rawValue: 0)
+        let text = event.characters ?? ""
+        return text.withCString { ptr in
+            input.text = ptr
+            return ghostty_surface_key_is_binding(surface, input, &flags)
+        }
     }
 
     private func syncPreedit(clearIfNeeded: Bool) {
@@ -198,10 +297,86 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
         }
     }
 
-    private static func filteredChars(_ event: NSEvent) -> String? {
+    private static func translatedEvent(for event: NSEvent, surface: ghostty_surface_t) -> NSEvent {
+        let translatedGhosttyMods = ghostty_surface_key_translation_mods(surface, ghosttyMods(event.modifierFlags))
+        var translatedFlags = event.modifierFlags
+        for flag in [NSEvent.ModifierFlags.shift, .control, .option, .command] {
+            let hasFlag: Bool
+            switch flag {
+            case .shift:
+                hasFlag = translatedGhosttyMods.rawValue & GHOSTTY_MODS_SHIFT.rawValue != 0
+            case .control:
+                hasFlag = translatedGhosttyMods.rawValue & GHOSTTY_MODS_CTRL.rawValue != 0
+            case .option:
+                hasFlag = translatedGhosttyMods.rawValue & GHOSTTY_MODS_ALT.rawValue != 0
+            case .command:
+                hasFlag = translatedGhosttyMods.rawValue & GHOSTTY_MODS_SUPER.rawValue != 0
+            default:
+                hasFlag = translatedFlags.contains(flag)
+            }
+            if hasFlag { translatedFlags.insert(flag) }
+            else { translatedFlags.remove(flag) }
+        }
+
+        return NSEvent.keyEvent(
+            with: event.type,
+            location: event.locationInWindow,
+            modifierFlags: translatedFlags,
+            timestamp: event.timestamp,
+            windowNumber: event.windowNumber,
+            context: nil,
+            characters: event.characters(byApplyingModifiers: translatedFlags) ?? event.characters ?? "",
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers ?? "",
+            isARepeat: event.isARepeat,
+            keyCode: event.keyCode
+        ) ?? event
+    }
+
+    private static func ghosttyKeyEvent(
+        _ action: ghostty_input_action_e,
+        event: NSEvent,
+        translationMods: NSEvent.ModifierFlags? = nil
+    ) -> ghostty_input_key_s {
+        var input = ghostty_input_key_s()
+        input.action = action
+        input.keycode = UInt32(event.keyCode)
+        input.text = nil
+        input.composing = false
+        input.mods = ghosttyMods(event.modifierFlags)
+        input.consumed_mods = ghosttyMods(
+            (translationMods ?? event.modifierFlags).subtracting([.control, .command])
+        )
+        input.unshifted_codepoint = unshiftedCodepoint(for: event)
+        return input
+    }
+
+    private static func textForKeyEvent(_ event: NSEvent) -> String? {
         guard let chars = event.characters else { return nil }
-        let filtered = chars.unicodeScalars.filter { $0.value >= 0x20 || $0.value == 0x0D }
-        return filtered.isEmpty ? nil : String(String.UnicodeScalarView(filtered))
+        guard !chars.isEmpty else { return nil }
+
+        if chars.count == 1, let scalar = chars.unicodeScalars.first {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if isControlCharacter(scalar), flags.contains(.control) {
+                return event.characters(byApplyingModifiers: flags.subtracting(.control))
+            }
+            if scalar.value >= 0xF700 && scalar.value <= 0xF8FF {
+                return nil
+            }
+        }
+
+        return chars
+    }
+
+    private static func unshiftedCodepoint(for event: NSEvent) -> UInt32 {
+        guard let chars = event.characters(byApplyingModifiers: [])
+                ?? event.charactersIgnoringModifiers
+                ?? event.characters,
+              let scalar = chars.unicodeScalars.first else { return 0 }
+        return scalar.value
+    }
+
+    private static func isControlCharacter(_ scalar: UnicodeScalar) -> Bool {
+        scalar.value < 0x20 || scalar.value == 0x7F
     }
 
     // MARK: - Mouse
@@ -228,6 +403,9 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
     }
 
     private func sendMouseButton(_ state: ghostty_input_mouse_state_e, button: ghostty_input_mouse_button_e, event: NSEvent) {
+        if state == GHOSTTY_MOUSE_PRESS {
+            window?.makeFirstResponder(self)
+        }
         guard let surface else { return }
         let pt = convert(event.locationInWindow, from: nil)
         let mods = Self.ghosttyMods(event.modifierFlags)
@@ -301,80 +479,5 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
         if flags.contains(.capsLock) { raw |= GHOSTTY_MODS_CAPS.rawValue }
         if flags.contains(.numericPad) { raw |= GHOSTTY_MODS_NUM.rawValue }
         return ghostty_input_mods_e(rawValue: raw)
-    }
-
-    // macOS key code → ghostty key enum
-    private static func ghosttyKeycode(_ code: UInt16) -> ghostty_input_key_e {
-        switch code {
-        case 0x00: return GHOSTTY_KEY_A
-        case 0x01: return GHOSTTY_KEY_S
-        case 0x02: return GHOSTTY_KEY_D
-        case 0x03: return GHOSTTY_KEY_F
-        case 0x04: return GHOSTTY_KEY_H
-        case 0x05: return GHOSTTY_KEY_G
-        case 0x06: return GHOSTTY_KEY_Z
-        case 0x07: return GHOSTTY_KEY_X
-        case 0x08: return GHOSTTY_KEY_C
-        case 0x09: return GHOSTTY_KEY_V
-        case 0x0B: return GHOSTTY_KEY_B
-        case 0x0C: return GHOSTTY_KEY_Q
-        case 0x0D: return GHOSTTY_KEY_W
-        case 0x0E: return GHOSTTY_KEY_E
-        case 0x0F: return GHOSTTY_KEY_R
-        case 0x10: return GHOSTTY_KEY_Y
-        case 0x11: return GHOSTTY_KEY_T
-        case 0x12: return GHOSTTY_KEY_DIGIT_1
-        case 0x13: return GHOSTTY_KEY_DIGIT_2
-        case 0x14: return GHOSTTY_KEY_DIGIT_3
-        case 0x15: return GHOSTTY_KEY_DIGIT_4
-        case 0x16: return GHOSTTY_KEY_DIGIT_6
-        case 0x17: return GHOSTTY_KEY_DIGIT_5
-        case 0x18: return GHOSTTY_KEY_EQUAL
-        case 0x19: return GHOSTTY_KEY_DIGIT_9
-        case 0x1A: return GHOSTTY_KEY_DIGIT_7
-        case 0x1B: return GHOSTTY_KEY_MINUS
-        case 0x1C: return GHOSTTY_KEY_DIGIT_8
-        case 0x1D: return GHOSTTY_KEY_DIGIT_0
-        case 0x1E: return GHOSTTY_KEY_BRACKET_RIGHT
-        case 0x1F: return GHOSTTY_KEY_O
-        case 0x20: return GHOSTTY_KEY_U
-        case 0x21: return GHOSTTY_KEY_BRACKET_LEFT
-        case 0x22: return GHOSTTY_KEY_I
-        case 0x23: return GHOSTTY_KEY_P
-        case 0x24: return GHOSTTY_KEY_ENTER
-        case 0x25: return GHOSTTY_KEY_L
-        case 0x26: return GHOSTTY_KEY_J
-        case 0x27: return GHOSTTY_KEY_QUOTE
-        case 0x28: return GHOSTTY_KEY_K
-        case 0x29: return GHOSTTY_KEY_SEMICOLON
-        case 0x2A: return GHOSTTY_KEY_BACKSLASH
-        case 0x2B: return GHOSTTY_KEY_COMMA
-        case 0x2C: return GHOSTTY_KEY_SLASH
-        case 0x2D: return GHOSTTY_KEY_N
-        case 0x2E: return GHOSTTY_KEY_M
-        case 0x2F: return GHOSTTY_KEY_PERIOD
-        case 0x30: return GHOSTTY_KEY_TAB
-        case 0x31: return GHOSTTY_KEY_SPACE
-        case 0x32: return GHOSTTY_KEY_BACKQUOTE
-        case 0x33: return GHOSTTY_KEY_BACKSPACE
-        case 0x35: return GHOSTTY_KEY_ESCAPE
-        case 0x38: return GHOSTTY_KEY_SHIFT_LEFT
-        case 0x3B: return GHOSTTY_KEY_CONTROL_LEFT
-        case 0x3A: return GHOSTTY_KEY_ALT_LEFT
-        case 0x37: return GHOSTTY_KEY_META_LEFT
-        case 0x3C: return GHOSTTY_KEY_SHIFT_RIGHT
-        case 0x3D: return GHOSTTY_KEY_ALT_RIGHT
-        case 0x36: return GHOSTTY_KEY_META_RIGHT
-        case 0x7B: return GHOSTTY_KEY_ARROW_LEFT
-        case 0x7C: return GHOSTTY_KEY_ARROW_RIGHT
-        case 0x7D: return GHOSTTY_KEY_ARROW_DOWN
-        case 0x7E: return GHOSTTY_KEY_ARROW_UP
-        case 0x73: return GHOSTTY_KEY_HOME
-        case 0x77: return GHOSTTY_KEY_END
-        case 0x74: return GHOSTTY_KEY_PAGE_UP
-        case 0x79: return GHOSTTY_KEY_PAGE_DOWN
-        case 0x75: return GHOSTTY_KEY_DELETE
-        default: return GHOSTTY_KEY_UNIDENTIFIED
-        }
     }
 }

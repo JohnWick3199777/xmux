@@ -3,19 +3,43 @@
 ## Architecture
 
 ```
+Frontend / host app (native macOS UI)
 XmuxApp (@main, SwiftUI)
 └── ContentView
     └── NavigationSplitView
         ├── LeftPanel (SwiftUI placeholder)
         ├── TerminalRepresentable (NSViewRepresentable)
-        │   └── GhosttyView (NSView)
-        │       └── ghostty_surface_t  ← libghostty owns Metal rendering
+        │   └── GhosttyView (NSView / NSTextInputClient)
         └── RightPanel (SwiftUI placeholder)
 
+Embedding boundary (libghostty C API)
 GhosttyApp (singleton)
-└── ghostty_app_t  ← one per process
-    └── C runtime callbacks → GhosttyApp methods
+└── ghostty_app_t
+    ├── wakeup_cb / action_cb / clipboard callbacks
+    └── ghostty_surface_t per terminal view
+
+Backend / terminal core (inside libghostty)
+└── Ghostty core surface
+    ├── input + key encoding
+    ├── terminal parser/state machine
+    ├── PTY/process IO
+    └── renderer thread + Metal layer ownership
 ```
+
+### Frontend vs backend
+
+Ghostty's architecture is cleanest if you think about it as **host app** versus **embedded terminal core**, not as two separate services.
+
+- **Frontend / host app**: native macOS UI code. In `xmux` this is SwiftUI/AppKit: window management, split layout, responder chain, `NSEvent` handling, clipboard bridging, and all app-specific panels.
+- **Backend / terminal core**: libghostty. This owns the actual terminal behavior: PTY subprocess management, byte stream parsing, terminal state, key encoding rules, scrollback, and rendering.
+- **Boundary**: `ghostty_app_t` and `ghostty_surface_t`. The frontend creates views and forwards native events across this boundary; the backend emits actions back to the host through callbacks.
+
+This matches upstream Ghostty's own terminology:
+
+- the platform UI shell is the **application runtime** (`apprt`)
+- the reusable core is the embedded **libghostty** surface/app implementation
+
+For `xmux`, the important design rule is: **AppKit/SwiftUI owns native UI concerns; libghostty owns terminal semantics.** We should avoid re-implementing terminal behavior in the host if libghostty already has a canonical path for it.
 
 ## libghostty integration
 
@@ -87,11 +111,13 @@ private static func actionCallback(...) {
 
 ### Input forwarding
 
-**Keyboard** — `NSEvent` → `ghostty_input_key_s` → `ghostty_surface_key`. Key codes are mapped from macOS hardware scancodes (`event.keyCode`) to `ghostty_input_key_e`. Text input goes through `NSTextInputClient` / `interpretKeyEvents` to handle IME composition correctly.
+**Keyboard** — `NSEvent` → `ghostty_input_key_s` → `ghostty_surface_key`. The embedded API expects the native macOS hardware key code in `keycode` (`event.keyCode`), plus translated modifier state, consumed modifiers, optional UTF-8 text, and an unshifted codepoint. Text input goes through `NSTextInputClient` / `interpretKeyEvents` so IME composition follows the same path as upstream Ghostty.
 
 **Mouse** — position via `ghostty_surface_mouse_pos`, clicks via `ghostty_surface_mouse_button`, scroll via `ghostty_surface_mouse_scroll`.
 
 **Focus** — `ghostty_surface_set_focus(surface, bool)` on `becomeFirstResponder` / `resignFirstResponder`.
+
+**Command routing** — AppKit shortcuts can be intercepted before `keyDown` via `performKeyEquivalent` / `doCommand`. To match upstream Ghostty behavior, terminal views need to route terminal-relevant command events back into the Ghostty key path rather than letting AppKit consume them.
 
 ### Actions (terminal → host)
 
@@ -127,6 +153,14 @@ Frameworks/
 project.yml                       XcodeGen spec
 pixi.toml                         build tasks
 ```
+
+Related upstream Ghostty areas:
+
+- `macos/Sources/Ghostty/Surface View/SurfaceView_AppKit.swift` — native macOS frontend event handling
+- `src/apprt/embedded.zig` — embedder boundary used by macOS/libghostty hosts
+- `src/Surface.zig` — core terminal surface lifecycle
+- `src/termio.zig` — PTY/process IO layer
+- `src/renderer.zig` — renderer abstraction and thread management
 
 ## GhosttyKit version
 
