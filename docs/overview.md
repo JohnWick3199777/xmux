@@ -4,7 +4,7 @@ A native macOS terminal built on [libghostty](https://github.com/ghostty-org/gho
 
 ## What it is
 
-Xmux is a terminal application with a three-panel layout: a navigator sidebar on the left, a full terminal in the centre, and an inspector panel on the right. The terminal is rendered entirely by libghostty using Metal — the same engine that powers Ghostty itself.
+Xmux is a terminal application with a fixed multi-pane layout: a navigator sidebar on the left, a full terminal in the centre, a live tail of `~/.xmux/xmux.log` directly under that terminal, and an inspector panel on the right. The terminal is rendered entirely by libghostty using Metal — the same engine that powers Ghostty itself.
 
 The goal is a purpose-built macOS terminal with a native IDE-like shell, designed around how developers actually use terminals alongside code, agents, and tooling.
 
@@ -12,20 +12,21 @@ The goal is a purpose-built macOS terminal with a native IDE-like shell, designe
 
 ```
 ┌──────────┬────────────────────────┬──────────┐
-│          │                        │          │
-│Navigator │       Terminal         │Inspector │
-│          │    (libghostty/Metal)  │          │
-│          │                        │          │
+│          │       Terminal         │          │
+│Navigator │    (libghostty/Metal)  │Inspector │
+│          ├────────────────────────┤          │
+│          │     Live xmux.log      │          │
 └──────────┴────────────────────────┴──────────┘
 ```
 
-- **Left panel** — Navigator: file tree, branches, sessions
-- **Centre** — Terminal surface: full GPU-rendered terminal via libghostty
-- **Right panel** — Inspector: environment, processes, history
+- **Left panel** — navigator: file tree, branches, sessions
+- **Centre** — terminal surface: full GPU-rendered terminal via libghostty
+- **Bottom centre** — live `xmux.log` output
+- **Right panel** — inspector placeholders
 
 ## Status
 
-This is a skeleton. The terminal is fully functional (PTY, keyboard, mouse, IME, scrollback). The side panels are placeholders to be built out.
+This is still a skeleton. The terminal is fully functional (PTY, keyboard, mouse, IME, scrollback), and the live log panel is wired up under the main terminal. Most inspector and navigator panels are still placeholders.
 
 ## Building
 

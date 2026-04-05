@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// Root layout: left sidebar | terminal | right sidebar
+/// Root layout: left sidebar | terminal + live log | right sidebar
 struct ContentView: View {
     @State private var terminalID = UUID()
 
     var body: some View {
         NavigationSplitView(
             sidebar: { LeftPanel() },
-            content: { TerminalRepresentable(terminalID: terminalID) },
-            detail: { RightPanel() }
+            content: { MainTerminalColumn(terminalID: terminalID) },
+            detail: { WorkspaceInspectorPanel() }
         )
         .navigationSplitViewStyle(.balanced)
     }
@@ -40,13 +40,26 @@ struct LeftPanel: View {
     }
 }
 
-#Preview("Left Panel") { LeftPanel() }
-
 // MARK: - Right Panel
 
-private let terminalBackground = Color(red: 40/255, green: 44/255, blue: 52/255)
+let terminalBackground = Color(red: 40/255, green: 44/255, blue: 52/255)
 
-struct RightPanel: View {
+struct MainTerminalColumn: View {
+    let terminalID: UUID
+    
+    var body: some View {
+        VSplitView {
+            TerminalRepresentable(terminalID: terminalID)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            XmuxLogPanel()
+                .frame(minHeight: 150, idealHeight: 190, maxHeight: 280)
+        }
+        .background(terminalBackground)
+    }
+}
+
+struct WorkspaceInspectorPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             List {
@@ -71,4 +84,17 @@ struct RightPanel: View {
     }
 }
 
-#Preview("Right Panel") { RightPanel() }
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            LeftPanel()
+                .previewDisplayName("Left Panel")
+
+            MainTerminalColumn(terminalID: UUID())
+                .previewDisplayName("Main Terminal Column")
+
+            WorkspaceInspectorPanel()
+                .previewDisplayName("Right Panel")
+        }
+    }
+}
