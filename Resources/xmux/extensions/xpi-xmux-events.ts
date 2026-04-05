@@ -5,12 +5,6 @@ const portPath = process.env.XMUX_PORT ?? "";
 const terminalId = process.env.XMUX_TERMINAL_ID ?? "";
 const processId = process.pid;
 
-let socket: net.Socket | null = null;
-let isConnected = false;
-let isConnecting = false;
-let reconnectTimer: NodeJS.Timeout | null = null;
-const pendingMessages: string[] = [];
-
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 function sanitize(value: unknown, seen = new WeakSet<object>()): JsonValue {
@@ -45,71 +39,19 @@ function sanitize(value: unknown, seen = new WeakSet<object>()): JsonValue {
 	return output;
 }
 
-function scheduleReconnect() {
-	if (!portPath || reconnectTimer || isConnected || isConnecting) return;
-	reconnectTimer = setTimeout(() => {
-		reconnectTimer = null;
-		ensureConnected();
-	}, 100);
-}
-
-function flushQueue() {
-	if (!socket || !isConnected) return;
-	while (pendingMessages.length > 0) {
-		const message = pendingMessages[0]!;
-		const writable = socket.write(message);
-		if (!writable) {
-			socket.once("drain", flushQueue);
-			return;
-		}
-		pendingMessages.shift();
-	}
-}
-
-function cleanupSocket() {
-	isConnected = false;
-	isConnecting = false;
-	if (socket) {
-		socket.removeAllListeners();
-		socket.destroy();
-		socket = null;
-	}
-}
-
-function ensureConnected() {
-	if (!portPath || socket || isConnected || isConnecting) return;
-	isConnecting = true;
-
-	try {
-		const nextSocket = net.createConnection(portPath);
-		socket = nextSocket;
-
-		nextSocket.on("connect", () => {
-			isConnecting = false;
-			isConnected = true;
-			flushQueue();
-		});
-
-		nextSocket.on("error", () => {
-			cleanupSocket();
-			scheduleReconnect();
-		});
-
-		nextSocket.on("close", () => {
-			cleanupSocket();
-			scheduleReconnect();
-		});
-	} catch {
-		cleanupSocket();
-		scheduleReconnect();
-	}
-}
-
 function emit(method: string, payload: Record<string, unknown>) {
 	if (!portPath) return;
-	pendingMessages.push(JSON.stringify({ jsonrpc: "2.0", method, params: payload }) + "\n");
-	ensureConnected();
-	flushQueue();
+
+	const message = JSON.stringify({ jsonrpc: "2.0", method, params: payload }) + "\n";
+	const socket = net.createConnection(portPath);
+
+	socket.on("error", () => {
+		socket.destroy();
+	});
+
+	socket.on("connect", () => {
+		socket.end(message);
+	});
 }
 
 function contextExtras(pi: ExtensionAPI, ctx: any): Record<string, unknown> {
@@ -122,7 +64,19 @@ function contextExtras(pi: ExtensionAPI, ctx: any): Record<string, unknown> {
 	};
 }
 
+function shouldForwardEvent(type: string, event: unknown): boolean {
+	if (type !== "message_update") return true;
+
+	const assistantEvent = (event as any)?.assistantMessageEvent;
+	const assistantType = assistantEvent?.type;
+	if (!assistantType || typeof assistantType !== "string") return true;
+
+	return ["text_end", "thinking_end", "toolcall_end", "done", "error"].includes(assistantType);
+}
+
 function emitEvent(type: string, event: unknown, pi: ExtensionAPI, ctx?: any) {
+	if (!shouldForwardEvent(type, event)) return;
+
 	emit(`pi.${type}`, {
 		terminal_id: terminalId,
 		pid: processId,

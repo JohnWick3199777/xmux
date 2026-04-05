@@ -116,9 +116,21 @@ function buildEnvelope(type: string, payload: Record<string, unknown> = {}, extr
 	};
 }
 
+function shouldForwardToXmuxPort(type: string, payload: Record<string, unknown>): boolean {
+	if (type !== "message_update") return true;
+
+	const assistantEvent = payload.assistantMessageEvent as Record<string, unknown> | undefined;
+	const assistantType = assistantEvent?.type;
+	if (typeof assistantType !== "string") return true;
+
+	return ["text_end", "thinking_end", "toolcall_end", "done", "error"].includes(assistantType);
+}
+
 function writeEvent(type: string, payload: Record<string, unknown> = {}, extras: Record<string, unknown> = {}): void {
 	const envelope = buildEnvelope(type, safeSerialize(payload) as Record<string, unknown>, safeSerialize(extras) as Record<string, unknown>);
 	appendJsonl(envelope);
+
+	if (!shouldForwardToXmuxPort(type, payload)) return;
 
 	forwardJsonRpc(`pi.${type}`, {
 		terminal_id: xmuxTerminalId ?? null,

@@ -408,12 +408,19 @@ final class XmuxState: ObservableObject {
                 )
 
             case "pi.turn_end":
-                isAgentRunning[terminalID] = false
-                states[terminalID] = PiRuntimeState(
-                    lifecycle: .idle(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
-                    sessionFile: resolvedSessionFile,
-                    currentToolName: existingState?.currentToolName
-                )
+                if currentlyRunning {
+                    states[terminalID] = PiRuntimeState(
+                        lifecycle: .working(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
+                        sessionFile: resolvedSessionFile,
+                        currentToolName: existingState?.currentToolName
+                    )
+                } else {
+                    states[terminalID] = PiRuntimeState(
+                        lifecycle: .idle(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
+                        sessionFile: resolvedSessionFile,
+                        currentToolName: existingState?.currentToolName
+                    )
+                }
 
             case "pi.message_end":
                 states[terminalID] = PiRuntimeState(

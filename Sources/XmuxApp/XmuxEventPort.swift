@@ -21,7 +21,7 @@ final class XmuxEventPort: @unchecked Sendable {
     private let listenQueue = DispatchQueue(label: "xmux.event-port.listen")
     private let clientQueue = DispatchQueue(label: "xmux.event-port.clients", attributes: .concurrent)
     private let stateQueue = DispatchQueue(label: "xmux.event-port.state", attributes: .concurrent)
-    private let maxLines = 500
+    private let maxLines = 10_000
 
     private var isStarted = false
     private var listenFD: Int32 = -1
@@ -202,7 +202,7 @@ final class XmuxEventPort: @unchecked Sendable {
         }
 
         if !buffered.isEmpty {
-            consumeLine(Data(buffered))
+            consumeTerminalBuffer(buffered)
         }
     }
 
@@ -216,13 +216,29 @@ final class XmuxEventPort: @unchecked Sendable {
     }
 
     private func consumeLine(_ data: Data) {
-        guard !data.isEmpty else { return }
+        guard let line = normalizedValidJSONLine(from: data) else { return }
+        record(line)
+    }
+
+    private func consumeTerminalBuffer(_ data: Data) {
+        guard let line = normalizedValidJSONLine(from: data) else { return }
+        record(line)
+    }
+
+    private func normalizedValidJSONLine(from data: Data) -> String? {
+        guard !data.isEmpty else { return nil }
 
         let line = String(decoding: data, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !line.isEmpty else { return }
+        guard !line.isEmpty, let jsonData = line.data(using: .utf8) else {
+            return nil
+        }
 
-        record(line)
+        guard (try? JSONSerialization.jsonObject(with: jsonData)) != nil else {
+            return nil
+        }
+
+        return line
     }
 
     private func record(_ line: String) {

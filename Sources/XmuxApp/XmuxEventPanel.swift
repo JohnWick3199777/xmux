@@ -69,17 +69,113 @@ final class XmuxEventTailModel: ObservableObject {
 
     private static func format(line: XmuxEventLine) -> String {
         let time = timeFormatter.string(from: line.timestamp)
-        let method = extractMethod(from: line.raw) ?? line.raw
-        return "[\(time)] \(method)"
+        return "[\(time)] \(summarize(raw: line.raw))"
     }
 
-    private static func extractMethod(from raw: String) -> String? {
+    private static func summarize(raw: String) -> String {
         guard let data = raw.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let method = object["method"] as? String else {
-            return nil
+            return raw
         }
-        return method
+
+        let params = object["params"] as? [String: Any]
+        let event = params?["event"] as? [String: Any]
+
+        switch method {
+        case "command.start":
+            if let command = params?["command"] as? String {
+                return "\(method) \(inline(command))"
+            }
+            return method
+
+        case "pi.message_start", "pi.message_end":
+            if let event,
+               let message = event["message"] as? [String: Any] {
+                let role = (message["role"] as? String) ?? "message"
+                if let content = extractMessageContent(from: message), !content.isEmpty {
+                    return "\(method) \(role): \(content)"
+                }
+                return "\(method) \(role)"
+            }
+            return method
+
+        case "pi.message_update":
+            if let event,
+               let assistantEvent = event["assistantMessageEvent"] as? [String: Any] {
+                let assistantType = (assistantEvent["type"] as? String) ?? "update"
+                if let content = extractAssistantUpdateContent(from: assistantEvent), !content.isEmpty {
+                    return "\(method) \(assistantType): \(content)"
+                }
+                return "\(method) \(assistantType)"
+            }
+            return method
+
+        case "pi.tool_execution_start", "pi.tool_execution_update", "pi.tool_execution_end":
+            if let toolName = event?["toolName"] as? String {
+                return "\(method) \(toolName)"
+            }
+            return method
+
+        default:
+            return method
+        }
+    }
+
+    private static func extractMessageContent(from message: [String: Any]) -> String? {
+        guard let content = message["content"] as? [[String: Any]] else { return nil }
+
+        let parts = content.compactMap { item -> String? in
+            let type = item["type"] as? String
+            switch type {
+            case "text":
+                return item["text"] as? String
+            case "thinking":
+                return item["thinking"] as? String
+            case "toolCall":
+                let name = item["name"] as? String ?? "tool"
+                if let arguments = item["partialJson"] as? String, !arguments.isEmpty {
+                    return "toolCall \(name) \(arguments)"
+                }
+                return "toolCall \(name)"
+            default:
+                return nil
+            }
+        }
+
+        guard !parts.isEmpty else { return nil }
+        return inline(parts.joined(separator: " | "))
+    }
+
+    private static func extractAssistantUpdateContent(from assistantEvent: [String: Any]) -> String? {
+        if let delta = assistantEvent["delta"] as? String, !delta.isEmpty {
+            return inline(delta)
+        }
+
+        if let content = assistantEvent["content"] as? String, !content.isEmpty {
+            return inline(content)
+        }
+
+        if let partial = assistantEvent["partial"] as? [String: Any],
+           let content = extractMessageContent(from: partial), !content.isEmpty {
+            return content
+        }
+
+        return nil
+    }
+
+    private static func inline(_ text: String, limit: Int = 240) -> String {
+        let flattened = text
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\t", with: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard flattened.count > limit else { return flattened }
+        let end = flattened.index(flattened.startIndex, offsetBy: limit)
+        return String(flattened[..<end]) + "…"
     }
 }
 
