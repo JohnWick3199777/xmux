@@ -1,9 +1,9 @@
 Frameworks/
-Xmux.xcodeproj/
+Xmux.xcodeproj/xcuserdata/
+Xmux.xcodeproj/*.xcuserdatad/
 DerivedData/
 build/
 .build/
-*.xcodeproj
 excalidraw.log
 .DS_Store
 __pycache__/

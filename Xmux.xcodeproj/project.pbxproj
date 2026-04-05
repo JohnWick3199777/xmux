@@ -1,0 +1,411 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04673B3FB79115E82225FE08 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48D1FB532C3C623E2607CFD8 /* SessionManager.swift */; };
+		2037611E98C5DD463FFF6BDC /* GhosttyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D320710BD0B05FC2C46CBFBB /* GhosttyApp.swift */; };
+		275F6C98FDB097B4046975CE /* XmuxEventPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5CE84C6C9D13E2CEA99B74 /* XmuxEventPanel.swift */; };
+		2A251EA0E99B7D08B442CA49 /* GhosttyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CB511C015CA2BC7E73E8C0F /* GhosttyView.swift */; };
+		2AB16B5436263C22E27BBA22 /* XmuxApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61B872658E884804587E512D /* XmuxApp.swift */; };
+		2E408F62563F345707EAAB08 /* AgentSessionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36407F3C92E76740C733221 /* AgentSessionCard.swift */; };
+		47D8C4644885667423E63944 /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4891159A964D9C60136DB51 /* GhosttyKit.xcframework */; };
+		52AAB533C1673949BBDCC309 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACAFD3CCAB2268C9D70EBD3 /* ContentView.swift */; };
+		7CBABB5783771FD382D15F07 /* XmuxLogPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19540250B0BB7DFA9C869683 /* XmuxLogPanel.swift */; };
+		7CE0C6E1DAECECC697BB9933 /* TerminalRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1419DECBEF62EADE070FE42F /* TerminalRepresentable.swift */; };
+		81A91D26847F383D5862A683 /* XmuxEventPort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1534F0E62F8C9E918D61540C /* XmuxEventPort.swift */; };
+		926578DE73105160E5EBDEDD /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7541FFDBED4720B86CED99A4 /* CoreText.framework */; };
+		9CFB90128400044DD6956D03 /* XmuxLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0491B93F098EB9D3672D120B /* XmuxLog.swift */; };
+		E3C621E6EDCA960ECC6067C9 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 77161829A0EB3DE50543A1C4 /* Metal.framework */; };
+		E43363A6137B07EBCA6EB821 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF0A58EE35122A3285A527A3 /* Carbon.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0491B93F098EB9D3672D120B /* XmuxLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmuxLog.swift; sourceTree = "<group>"; };
+		1419DECBEF62EADE070FE42F /* TerminalRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalRepresentable.swift; sourceTree = "<group>"; };
+		1534F0E62F8C9E918D61540C /* XmuxEventPort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmuxEventPort.swift; sourceTree = "<group>"; };
+		19540250B0BB7DFA9C869683 /* XmuxLogPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmuxLogPanel.swift; sourceTree = "<group>"; };
+		2ACAFD3CCAB2268C9D70EBD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		39CCB5700FECE0CB44743C4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		48D1FB532C3C623E2607CFD8 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		4E5CE84C6C9D13E2CEA99B74 /* XmuxEventPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmuxEventPanel.swift; sourceTree = "<group>"; };
+		61B872658E884804587E512D /* XmuxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmuxApp.swift; sourceTree = "<group>"; };
+		7541FFDBED4720B86CED99A4 /* CoreText.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreText.framework; path = System/Library/Frameworks/CoreText.framework; sourceTree = SDKROOT; };
+		77161829A0EB3DE50543A1C4 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		9CB511C015CA2BC7E73E8C0F /* GhosttyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyView.swift; sourceTree = "<group>"; };
+		B36407F3C92E76740C733221 /* AgentSessionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionCard.swift; sourceTree = "<group>"; };
+		D320710BD0B05FC2C46CBFBB /* GhosttyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyApp.swift; sourceTree = "<group>"; };
+		D4891159A964D9C60136DB51 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyKit.xcframework; path = Frameworks/GhosttyKit.xcframework; sourceTree = "<group>"; };
+		F4E4F25E45B0C4D5EB1AB850 /* Xmux.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Xmux.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF0A58EE35122A3285A527A3 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F236256A61D311F953B134B9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				47D8C4644885667423E63944 /* GhosttyKit.xcframework in Frameworks */,
+				E43363A6137B07EBCA6EB821 /* Carbon.framework in Frameworks */,
+				E3C621E6EDCA960ECC6067C9 /* Metal.framework in Frameworks */,
+				926578DE73105160E5EBDEDD /* CoreText.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		26FF01B7941D1AA8C9AED968 /* Ghostty */ = {
+			isa = PBXGroup;
+			children = (
+				D320710BD0B05FC2C46CBFBB /* GhosttyApp.swift */,
+				9CB511C015CA2BC7E73E8C0F /* GhosttyView.swift */,
+				1419DECBEF62EADE070FE42F /* TerminalRepresentable.swift */,
+			);
+			path = Ghostty;
+			sourceTree = "<group>";
+		};
+		4DDA0D372BDEAFD533FAD577 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F4E4F25E45B0C4D5EB1AB850 /* Xmux.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5A86EFF2D63E2FD69B6D05AA = {
+			isa = PBXGroup;
+			children = (
+				5F18A7BE303343AD7ED3D135 /* XmuxApp */,
+				AB47277249873AE947C5864B /* Frameworks */,
+				4DDA0D372BDEAFD533FAD577 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5F18A7BE303343AD7ED3D135 /* XmuxApp */ = {
+			isa = PBXGroup;
+			children = (
+				B36407F3C92E76740C733221 /* AgentSessionCard.swift */,
+				2ACAFD3CCAB2268C9D70EBD3 /* ContentView.swift */,
+				39CCB5700FECE0CB44743C4D /* Info.plist */,
+				48D1FB532C3C623E2607CFD8 /* SessionManager.swift */,
+				61B872658E884804587E512D /* XmuxApp.swift */,
+				4E5CE84C6C9D13E2CEA99B74 /* XmuxEventPanel.swift */,
+				1534F0E62F8C9E918D61540C /* XmuxEventPort.swift */,
+				0491B93F098EB9D3672D120B /* XmuxLog.swift */,
+				19540250B0BB7DFA9C869683 /* XmuxLogPanel.swift */,
+				26FF01B7941D1AA8C9AED968 /* Ghostty */,
+			);
+			name = XmuxApp;
+			path = Sources/XmuxApp;
+			sourceTree = "<group>";
+		};
+		AB47277249873AE947C5864B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				FF0A58EE35122A3285A527A3 /* Carbon.framework */,
+				7541FFDBED4720B86CED99A4 /* CoreText.framework */,
+				D4891159A964D9C60136DB51 /* GhosttyKit.xcframework */,
+				77161829A0EB3DE50543A1C4 /* Metal.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C35155D46F78EC7B8BEF8620 /* Xmux */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC61145976C62E0CDF1026AE /* Build configuration list for PBXNativeTarget "Xmux" */;
+			buildPhases = (
+				BFD9AD76C0F4637140D0344E /* Copy Ghostty Resources */,
+				9F3609956443A5B3CF9920CC /* Sources */,
+				F236256A61D311F953B134B9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Xmux;
+			packageProductDependencies = (
+			);
+			productName = Xmux;
+			productReference = F4E4F25E45B0C4D5EB1AB850 /* Xmux.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6E991EF159B2EEDC1A0C7DFE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = DF8BD907E707AF2C6742433C /* Build configuration list for PBXProject "Xmux" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 5A86EFF2D63E2FD69B6D05AA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4DDA0D372BDEAFD533FAD577 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C35155D46F78EC7B8BEF8620 /* Xmux */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BFD9AD76C0F4637140D0344E /* Copy Ghostty Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Ghostty Resources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nRESOURCES_DIR=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\n# Copy shell integration so ghostty can inject into bash/zsh/fish\nif [ -d \"${SRCROOT}/Resources/ghostty/shell-integration\" ]; then\n  mkdir -p \"$RESOURCES_DIR/ghostty\"\n  cp -R \"${SRCROOT}/Resources/ghostty/shell-integration\" \"$RESOURCES_DIR/ghostty/\"\nfi\n# Copy terminfo — the sentinel file that tells libghostty where resources live\nif [ -d \"${SRCROOT}/Resources/terminfo\" ]; then\n  cp -R \"${SRCROOT}/Resources/terminfo\" \"$RESOURCES_DIR/\"\nfi\n# Copy xmux-specific wrappers, hook config, and shell integration layers\nif [ -d \"${SRCROOT}/Resources/xmux\" ]; then\n  cp -R \"${SRCROOT}/Resources/xmux\" \"$RESOURCES_DIR/\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9F3609956443A5B3CF9920CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E408F62563F345707EAAB08 /* AgentSessionCard.swift in Sources */,
+				52AAB533C1673949BBDCC309 /* ContentView.swift in Sources */,
+				2037611E98C5DD463FFF6BDC /* GhosttyApp.swift in Sources */,
+				2A251EA0E99B7D08B442CA49 /* GhosttyView.swift in Sources */,
+				04673B3FB79115E82225FE08 /* SessionManager.swift in Sources */,
+				7CE0C6E1DAECECC697BB9933 /* TerminalRepresentable.swift in Sources */,
+				2AB16B5436263C22E27BBA22 /* XmuxApp.swift in Sources */,
+				275F6C98FDB097B4046975CE /* XmuxEventPanel.swift in Sources */,
+				81A91D26847F383D5862A683 /* XmuxEventPort.swift in Sources */,
+				9CFB90128400044DD6956D03 /* XmuxLog.swift in Sources */,
+				7CBABB5783771FD382D15F07 /* XmuxLogPanel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		532FEC95748AB2228C0289B9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Frameworks\"",
+				);
+				INFOPLIST_FILE = Sources/XmuxApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "-lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = com.itamarbarron.Xmux;
+				PRODUCT_NAME = Xmux;
+				SDKROOT = macosx;
+				VALID_ARCHS = arm64;
+			};
+			name = Debug;
+		};
+		909790C7A3A50D13B912A935 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"Frameworks\"",
+				);
+				INFOPLIST_FILE = Sources/XmuxApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "-lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = com.itamarbarron.Xmux;
+				PRODUCT_NAME = Xmux;
+				SDKROOT = macosx;
+				VALID_ARCHS = arm64;
+			};
+			name = Release;
+		};
+		BE23C54F04986107632B3F48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6;
+			};
+			name = Release;
+		};
+		D9D11744A9156FCC6AA69F1F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DF8BD907E707AF2C6742433C /* Build configuration list for PBXProject "Xmux" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D9D11744A9156FCC6AA69F1F /* Debug */,
+				BE23C54F04986107632B3F48 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FC61145976C62E0CDF1026AE /* Build configuration list for PBXNativeTarget "Xmux" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				532FEC95748AB2228C0289B9 /* Debug */,
+				909790C7A3A50D13B912A935 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6E991EF159B2EEDC1A0C7DFE /* Project object */;
+}
