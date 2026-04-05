@@ -315,6 +315,7 @@ final class XmuxState: ObservableObject {
         let snapshot = XmuxEventPort.shared.snapshot()
         var states: [UUID: PiRuntimeState] = [:]
         var isAgentRunning: [UUID: Bool] = [:]
+        var didShutdownSession: [UUID: Bool] = [:]
 
         for line in snapshot.lines {
             guard let event = parseEventEnvelope(from: line.raw),
@@ -324,12 +325,25 @@ final class XmuxState: ObservableObject {
             }
 
             let sessionID = extractPiSessionID(from: event.sessionFile)
-            let currentlyRunning = isAgentRunning[terminalID] ?? false
             let existingState = states[terminalID]
             let resolvedSessionFile = event.sessionFile ?? existingState?.sessionFile
+            let isShutdown = didShutdownSession[terminalID] ?? false
+
+            // Pi may emit trailing lifecycle notifications after session_shutdown
+            // (for example: message_end / turn_end / agent_end). Once shutdown is
+            // observed, keep the session cleared until a new session/agent starts.
+            if isShutdown,
+               event.method != "pi.session_start",
+               event.method != "pi.before_agent_start",
+               event.method != "pi.agent_start" {
+                continue
+            }
+
+            let currentlyRunning = isAgentRunning[terminalID] ?? false
 
             switch event.method {
             case "pi.before_agent_start", "pi.agent_start":
+                didShutdownSession[terminalID] = false
                 isAgentRunning[terminalID] = true
                 states[terminalID] = PiRuntimeState(
                     lifecycle: .working(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
@@ -353,6 +367,9 @@ final class XmuxState: ObservableObject {
                  "pi.session_before_tree",
                  "pi.session_tree",
                  "pi.model_select":
+                if event.method == "pi.session_start" {
+                    didShutdownSession[terminalID] = false
+                }
                 if !currentlyRunning {
                     states[terminalID] = PiRuntimeState(
                         lifecycle: .idle(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
@@ -390,8 +407,15 @@ final class XmuxState: ObservableObject {
                     currentToolName: nil
                 )
 
-            case "pi.turn_end",
-                 "pi.message_end":
+            case "pi.turn_end":
+                isAgentRunning[terminalID] = false
+                states[terminalID] = PiRuntimeState(
+                    lifecycle: .idle(sessionID: sessionID ?? existingState?.lifecycle.sessionID),
+                    sessionFile: resolvedSessionFile,
+                    currentToolName: existingState?.currentToolName
+                )
+
+            case "pi.message_end":
                 states[terminalID] = PiRuntimeState(
                     lifecycle: currentlyRunning
                         ? .working(sessionID: sessionID ?? existingState?.lifecycle.sessionID)
@@ -401,6 +425,7 @@ final class XmuxState: ObservableObject {
                 )
 
             case "pi.session_shutdown":
+                didShutdownSession[terminalID] = true
                 isAgentRunning[terminalID] = false
                 states[terminalID] = PiRuntimeState(lifecycle: .none, sessionFile: nil, currentToolName: nil)
 

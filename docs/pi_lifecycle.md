@@ -86,6 +86,10 @@ Additional session-management events may also appear:
 - `pi.session_shutdown`
 - `pi.model_select`
 
+Note: in real event streams, `pi.session_shutdown` is not guaranteed to be the final pi event.
+Trailing notifications such as `pi.message_end`, `pi.turn_end`, or `pi.agent_end` may still arrive afterward.
+Consumers should treat `pi.session_shutdown` as authoritative for clearing session state and ignore any trailing finalizers until a new `pi.session_start` / `pi.before_agent_start` / `pi.agent_start` occurs.
+
 ## Recommended Sessions panel status mapping
 
 For the high-level session card state, xmux uses agent lifecycle events as the primary source of truth.
@@ -97,6 +101,7 @@ This is more stable than trying to infer status from message or tool events alon
   - `pi.before_agent_start`
   - `pi.agent_start`
 - set status to **idle** on:
+  - `pi.turn_end`
   - `pi.agent_end`
 - clear pi status/session metadata on:
   - `pi.session_shutdown`
@@ -124,18 +129,24 @@ Other lifecycle events can refine display, but should not override an active in-
   - `pi.session_tree`
   - `pi.model_select`
 
-## Why `agent_start` / `agent_end` are primary
+## Why xmux uses `turn_end` for idle
 
-Some lower-level events are not reliable as the only busy/idle signal:
+For xmux's sessions UI, the most useful signal is when the current response turn is done.
+That means the card should stop looking busy as soon as the turn completes, even if pi later emits trailing lifecycle cleanup.
 
-- `message_end` can happen before the overall agent run finishes
+Important caveats:
+
+- `message_end` can happen before the overall turn is finished
 - `tool_execution_end` can happen while more tools or additional model output are still pending
-- `turn_end` may be followed by additional work depending on control flow
+- `agent_end` may arrive later than the moment the user expects the session to look idle
 
-Because of that, the safest UI contract is:
+Because of that, xmux treats:
 
-- **working** while the agent loop is active
-- **idle** once the agent loop ends
+- **working** while a turn is active
+- **idle** at `pi.turn_end`
+- **none** at `pi.session_shutdown`
+
+`pi.agent_end` is still accepted as an idle signal, but it is no longer the only one.
 
 ## Event payload notes
 

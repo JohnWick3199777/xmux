@@ -5,6 +5,12 @@ const portPath = process.env.XMUX_PORT ?? "";
 const terminalId = process.env.XMUX_TERMINAL_ID ?? "";
 const processId = process.pid;
 
+let socket: net.Socket | null = null;
+let isConnected = false;
+let isConnecting = false;
+let reconnectTimer: NodeJS.Timeout | null = null;
+const pendingMessages: string[] = [];
+
 function sanitize(value: unknown, seen = new WeakSet<object>()): unknown {
 	if (value === null || value === undefined) return value ?? null;
 	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
@@ -28,26 +34,77 @@ function sanitize(value: unknown, seen = new WeakSet<object>()): unknown {
 	return output;
 }
 
-function emit(method: string, payload: Record<string, unknown>) {
-	if (!portPath) return;
-	const message = JSON.stringify({
-		jsonrpc: "2.0",
-		method,
-		params: payload,
-	});
+function scheduleReconnect() {
+	if (!portPath || reconnectTimer || isConnected || isConnecting) return;
+	reconnectTimer = setTimeout(() => {
+		reconnectTimer = null;
+		ensureConnected();
+	}, 100);
+}
+
+function flushQueue() {
+	if (!socket || !isConnected) return;
+	while (pendingMessages.length > 0) {
+		const message = pendingMessages[0];
+		const writable = socket.write(message);
+		if (!writable) {
+			socket.once("drain", flushQueue);
+			return;
+		}
+		pendingMessages.shift();
+	}
+}
+
+function cleanupSocket() {
+	isConnected = false;
+	isConnecting = false;
+	if (socket) {
+		socket.removeAllListeners();
+		socket.destroy();
+		socket = null;
+	}
+}
+
+function ensureConnected() {
+	if (!portPath || socket || isConnected || isConnecting) return;
+	isConnecting = true;
 
 	try {
-		const socket = net.createConnection(portPath);
-		socket.on("connect", () => {
-			socket.write(message + "\n");
-			socket.end();
+		const nextSocket = net.createConnection(portPath);
+		socket = nextSocket;
+
+		nextSocket.on("connect", () => {
+			isConnecting = false;
+			isConnected = true;
+			flushQueue();
 		});
-		socket.on("error", () => {
-			// Never let xmux event forwarding affect pi itself.
+
+		nextSocket.on("error", () => {
+			cleanupSocket();
+			scheduleReconnect();
+		});
+
+		nextSocket.on("close", () => {
+			cleanupSocket();
+			scheduleReconnect();
 		});
 	} catch {
-		// Ignore transport failures.
+		cleanupSocket();
+		scheduleReconnect();
 	}
+}
+
+function emit(method: string, payload: Record<string, unknown>) {
+	if (!portPath) return;
+	pendingMessages.push(
+		JSON.stringify({
+			jsonrpc: "2.0",
+			method,
+			params: payload,
+		}) + "\n"
+	);
+	ensureConnected();
+	flushQueue();
 }
 
 function emitEvent(type: string, event: unknown, ctx?: { sessionManager?: { getSessionFile?: () => string | undefined } }) {
