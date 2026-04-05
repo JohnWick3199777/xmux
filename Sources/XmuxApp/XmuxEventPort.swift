@@ -68,6 +68,11 @@ final class XmuxEventPort: @unchecked Sendable {
         }
     }
 
+    /// Inject a line directly from within the app (same as if a client sent it).
+    func emit(_ line: String) {
+        record(line)
+    }
+
     private func runListener(at socketPath: String) {
         cleanupSocketFile(at: socketPath)
 

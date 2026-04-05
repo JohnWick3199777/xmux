@@ -8,7 +8,7 @@ private enum LayoutMetrics {
 
 /// Root layout: fixed left panel | terminal + live log/events | fixed right panel
 struct ContentView: View {
-    @State private var terminalID = UUID()
+    @StateObject private var sessionManager = SessionManager()
 
     var body: some View {
         HSplitView {
@@ -20,11 +20,11 @@ struct ContentView: View {
                     maxHeight: .infinity
                 )
 
-            MainTerminalColumn(terminalID: terminalID)
+            MainTerminalColumn(sessionManager: sessionManager)
                 .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
 
-            WorkspaceInspectorPanel()
+            SessionsPanel(sessions: sessionManager)
                 .frame(
                     minWidth: LayoutMetrics.sidePanelMinWidth,
                     idealWidth: LayoutMetrics.sidePanelIdealWidth,
@@ -67,15 +67,26 @@ struct LeftPanel: View {
     }
 }
 
-// MARK: - Right Panel
+// MARK: - Main Terminal Column
 
 struct MainTerminalColumn: View {
-    let terminalID: UUID
-    
+    @ObservedObject var sessionManager: SessionManager
+
     var body: some View {
         VSplitView {
-            TerminalRepresentable(terminalID: terminalID)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // All terminal surfaces live in the hierarchy simultaneously.
+            // Only the active one is visible; others are hidden so their
+            // ghostty_surface_t stays alive without resetting the session.
+            ZStack {
+                ForEach(sessionManager.sessions) { session in
+                    TerminalRepresentable(
+                        terminalID: session.id,
+                        isActive: session.id == sessionManager.activeID
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             HSplitView {
                 XmuxLogPanel()
@@ -90,42 +101,9 @@ struct MainTerminalColumn: View {
     }
 }
 
-struct WorkspaceInspectorPanel: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            List {
-                Label("Environment", systemImage: "info.circle")
-                    .frame(height: 20)
-                    .listRowBackground(terminalBackground)
-                Label("Processes", systemImage: "cpu")
-                    .frame(height: 20)
-                    .listRowBackground(terminalBackground)
-                Label("History", systemImage: "clock")
-                    .frame(height: 20)
-                    .listRowBackground(terminalBackground)
-            }
-            .listStyle(.sidebar)
-            .foregroundStyle(terminalPanelForeground)
-            .scrollContentBackground(.hidden)
-            .background(terminalBackground)
-
-            Spacer()
-        }
-        .background(terminalBackground)
-    }
-}
-
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        Group {
-            LeftPanel()
-                .previewDisplayName("Left Panel")
-
-            MainTerminalColumn(terminalID: UUID())
-                .previewDisplayName("Main Terminal Column")
-
-            WorkspaceInspectorPanel()
-                .previewDisplayName("Right Panel")
-        }
+        LeftPanel()
+            .previewDisplayName("Left Panel")
     }
 }
