@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 // MARK: - Sessions panel (right column)
@@ -102,6 +103,38 @@ struct SessionCard: View {
                                 .truncationMode(.middle)
                         }
                         .foregroundStyle(piStatusColor)
+
+                        if let piToolLabel = piToolLabel {
+                            HStack(spacing: 6) {
+                                Image(systemName: "wrench.and.screwdriver")
+                                    .font(.system(size: 9))
+                                Text(piToolLabel)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                        }
+
+                        if let piToolCountLabel = piToolCountLabel {
+                            HStack(spacing: 6) {
+                                Image(systemName: "number")
+                                    .font(.system(size: 9))
+                                Text(piToolCountLabel)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            .foregroundStyle(terminalPanelSecondaryForeground.opacity(0.9))
+                        }
+
+                        if let piUsageLabel = piUsageLabel {
+                            Text(piUsageLabel)
+                                .font(.system(size: 10, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(terminalPanelSecondaryForeground.opacity(0.9))
+                        }
                     }
 
                     Text(elapsedString(from: session.startTime))
@@ -146,6 +179,39 @@ struct SessionCard: View {
         return "pi \(shortID)"
     }
 
+    private var piToolLabel: String? {
+        guard let toolName = session.piCurrentToolName, !toolName.isEmpty else { return nil }
+        return "tool \(toolName) · running"
+    }
+
+    private var piToolCountLabel: String? {
+        guard let summary = session.piUsageSummary,
+              summary.toolCallCount > 0 else { return nil }
+        return "tools:\(summary.toolCallCount)"
+    }
+
+    private var piUsageLabel: String? {
+        guard let summary = session.piUsageSummary else { return nil }
+
+        var parts: [String] = []
+
+        if summary.inputTokens > 0 {
+            parts.append("↑\(formatTokens(summary.inputTokens))")
+        }
+        if summary.outputTokens > 0 {
+            parts.append("↓\(formatTokens(summary.outputTokens))")
+        }
+        if summary.totalCostUSD > 0 || summary.usingSubscription {
+            parts.append(String(format: "$%.3f%@", summary.totalCostUSD, summary.usingSubscription ? " (sub)" : ""))
+        }
+
+        if let contextText = contextUsageText(summary: summary) {
+            parts.append(contextText)
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
     private var piStatusColor: Color {
         switch session.piStatus {
         case .working:
@@ -155,6 +221,27 @@ struct SessionCard: View {
         case nil:
             return terminalPanelSecondaryForeground
         }
+    }
+
+    private func contextUsageText(summary: XmuxSessionState.PiUsageSummary) -> String? {
+        let auto = summary.autoCompactEnabled ? " (auto)" : ""
+
+        switch (summary.contextPercent, summary.contextWindow) {
+        case let (.some(percent), .some(window)):
+            return String(format: "%.1f%%/%@%@", percent, formatTokens(window), auto)
+        case let (_, .some(window)):
+            return "?/\(formatTokens(window))\(auto)"
+        default:
+            return nil
+        }
+    }
+
+    private func formatTokens(_ count: Int) -> String {
+        if count < 1_000 { return "\(count)" }
+        if count < 10_000 { return String(format: "%.1fk", Double(count) / 1_000) }
+        if count < 1_000_000 { return "\(Int(round(Double(count) / 1_000)))k" }
+        if count < 10_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        return "\(Int(round(Double(count) / 1_000_000)))M"
     }
 
     private func elapsedString(from date: Date) -> String {
