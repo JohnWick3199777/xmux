@@ -4,11 +4,20 @@ import SwiftUI
 // MARK: - Session model
 
 struct TerminalSession: Identifiable {
+    enum PiStatus: String {
+        case idle
+        case working
+
+        var label: String { rawValue }
+    }
+
     let id: UUID
     let index: Int
     let startTime: Date
     var title: String = ""
     var pwd: String = ""
+    var piSessionID: String?
+    var piStatus: PiStatus?
 
     /// Human-readable name: shell-reported title > last path component > fallback
     var displayName: String {
@@ -24,6 +33,26 @@ struct TerminalSession: Identifiable {
         let home = NSHomeDirectory()
         if pwd.hasPrefix(home) { return "~" + pwd.dropFirst(home.count) }
         return pwd
+    }
+}
+
+private struct PiSessionState {
+    var sessionID: String?
+    var status: TerminalSession.PiStatus?
+    var isAgentRunning = false
+}
+
+private struct XmuxEventEnvelope {
+    let method: String
+    let params: [String: Any]
+
+    var terminalID: UUID? {
+        guard let raw = params["terminal_id"] as? String else { return nil }
+        return UUID(uuidString: raw)
+    }
+
+    var sessionFile: String? {
+        params["session_file"] as? String
     }
 }
 
@@ -120,12 +149,119 @@ final class SessionManager: ObservableObject {
         }
     }
 
-    /// Pull live pwd + title from GhosttyView registry
+    /// Pull live pwd + title from GhosttyView registry and reconcile latest pi state.
     private func refreshMeta() {
+        let piStates = latestPiStateByTerminalID()
+
         for i in sessions.indices {
-            guard let view = GhosttyView.registry[sessions[i].id] else { continue }
-            sessions[i].title = view.title
-            sessions[i].pwd = view.pwd
+            if let view = GhosttyView.registry[sessions[i].id] {
+                sessions[i].title = view.title
+                sessions[i].pwd = view.pwd
+            }
+
+            let piState = piStates[sessions[i].id]
+            sessions[i].piSessionID = piState?.sessionID
+            sessions[i].piStatus = piState?.status
         }
+    }
+
+    private func latestPiStateByTerminalID() -> [UUID: PiSessionState] {
+        let snapshot = XmuxEventPort.shared.snapshot()
+        var states: [UUID: PiSessionState] = [:]
+
+        for line in snapshot.lines {
+            guard let event = parseEventEnvelope(from: line.raw),
+                  event.method.hasPrefix("pi."),
+                  let terminalID = event.terminalID else {
+                continue
+            }
+
+            var state = states[terminalID] ?? PiSessionState()
+
+            if let sessionID = extractPiSessionID(from: event.sessionFile) {
+                state.sessionID = sessionID
+            }
+
+            switch event.method {
+            case "pi.before_agent_start", "pi.agent_start":
+                state.isAgentRunning = true
+                state.status = .working
+
+            case "pi.agent_end":
+                state.isAgentRunning = false
+                state.status = .idle
+
+            case "pi.session_start",
+                 "pi.session_before_switch",
+                 "pi.session_before_fork",
+                 "pi.session_before_compact",
+                 "pi.session_compact",
+                 "pi.session_before_tree",
+                 "pi.session_tree",
+                 "pi.model_select":
+                if !state.isAgentRunning {
+                    state.status = .idle
+                }
+
+            case "pi.turn_start",
+                 "pi.message_start",
+                 "pi.message_update",
+                 "pi.tool_execution_start",
+                 "pi.tool_execution_update":
+                if state.isAgentRunning {
+                    state.status = .working
+                }
+
+            case "pi.turn_end",
+                 "pi.message_end",
+                 "pi.tool_execution_end":
+                if state.isAgentRunning {
+                    state.status = .working
+                } else {
+                    state.status = .idle
+                }
+
+            case "pi.session_shutdown":
+                state.status = nil
+                state.sessionID = nil
+                state.isAgentRunning = false
+
+            default:
+                break
+            }
+
+            states[terminalID] = state
+        }
+
+        return states
+    }
+
+    private func parseEventEnvelope(from raw: String) -> XmuxEventEnvelope? {
+        guard let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let method = object["method"] as? String,
+              let params = object["params"] as? [String: Any] else {
+            return nil
+        }
+
+        return XmuxEventEnvelope(method: method, params: params)
+    }
+
+    private func extractPiSessionID(from sessionFile: String?) -> String? {
+        guard let sessionFile, !sessionFile.isEmpty else { return nil }
+
+        let fileName = URL(fileURLWithPath: sessionFile)
+            .deletingPathExtension()
+            .lastPathComponent
+        guard !fileName.isEmpty else { return nil }
+
+        if let underscore = fileName.lastIndex(of: "_") {
+            let candidate = String(fileName[fileName.index(after: underscore)...])
+            if !candidate.isEmpty {
+                return candidate
+            }
+        }
+
+        return fileName
     }
 }

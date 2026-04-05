@@ -165,6 +165,8 @@ When `pi` is launched from an xmux-managed shell, the injected `Resources/xmux/b
 
 That extension forwards pi lifecycle, streaming, and tool execution events to `xmux.port` as JSON-RPC notifications whose method name is `pi.<event-type>`.
 
+For the forwarded payload shape, lifecycle summary, and the Sessions panel `idle` / `working` mapping, see [pi_lifecycle.md](pi_lifecycle.md).
+
 Example events:
 
 ```json

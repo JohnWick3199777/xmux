@@ -92,6 +92,18 @@ struct SessionCard: View {
                     }
                     .foregroundStyle(terminalPanelSecondaryForeground)
 
+                    if let piLabel = piLabel {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 9))
+                            Text(piLabel)
+                                .font(.system(size: 10, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .foregroundStyle(piStatusColor)
+                    }
+
                     Text(elapsedString(from: session.startTime))
                         .font(.system(size: 10))
                         .foregroundStyle(terminalPanelSecondaryForeground.opacity(0.6))
@@ -121,6 +133,28 @@ struct SessionCard: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+    }
+
+    private var piLabel: String? {
+        guard let sessionID = session.piSessionID else { return nil }
+        let shortID = String(sessionID.prefix(8))
+
+        if let status = session.piStatus {
+            return "pi \(shortID) · \(status.label)"
+        }
+
+        return "pi \(shortID)"
+    }
+
+    private var piStatusColor: Color {
+        switch session.piStatus {
+        case .working:
+            return Color.orange.opacity(0.9)
+        case .idle:
+            return Color.cyan.opacity(0.9)
+        case nil:
+            return terminalPanelSecondaryForeground
+        }
     }
 
     private func elapsedString(from date: Date) -> String {
