@@ -3,14 +3,19 @@ import SwiftUI
 
 @MainActor
 final class XmuxEventTailModel: ObservableObject {
-    @Published private(set) var lines: [String] = []
+    @Published private(set) var lines: [XmuxEventLine] = []
     @Published private(set) var portPath = ""
     @Published private(set) var scrollVersion = 0
 
     private var watchTask: Task<Void, Never>?
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
 
     var visibleText: String {
-        lines.joined(separator: "\n")
+        lines.map(Self.format(line:)).joined(separator: "\n")
     }
 
     var displayPath: String {
@@ -60,6 +65,21 @@ final class XmuxEventTailModel: ObservableObject {
             lines = snapshot.lines
             scrollVersion += 1
         }
+    }
+
+    private static func format(line: XmuxEventLine) -> String {
+        let time = timeFormatter.string(from: line.timestamp)
+        let method = extractMethod(from: line.raw) ?? line.raw
+        return "[\(time)] \(method)"
+    }
+
+    private static func extractMethod(from raw: String) -> String? {
+        guard let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let method = object["method"] as? String else {
+            return nil
+        }
+        return method
     }
 }
 

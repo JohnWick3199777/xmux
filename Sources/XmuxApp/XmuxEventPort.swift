@@ -1,9 +1,14 @@
 import Foundation
 import Darwin
 
+struct XmuxEventLine: Equatable {
+    let timestamp: Date
+    let raw: String
+}
+
 struct XmuxEventSnapshot {
     let path: String
-    let lines: [String]
+    let lines: [XmuxEventLine]
 }
 
 /// Manages the `xmux.port` Unix socket and an in-memory ring buffer of recent events.
@@ -20,7 +25,7 @@ final class XmuxEventPort: @unchecked Sendable {
     private var isStarted = false
     private var listenFD: Int32 = -1
     private var clientFDs: Set<Int32> = []
-    private var lines: [String] = []
+    private var lines: [XmuxEventLine] = []
 
     private init() {}
 
@@ -217,7 +222,7 @@ final class XmuxEventPort: @unchecked Sendable {
     private func record(_ line: String) {
         let payload = "\(line)\n"
         let clientFDs = stateQueue.sync(flags: .barrier) {
-            lines.append(line)
+            lines.append(XmuxEventLine(timestamp: Date(), raw: line))
             if lines.count > maxLines {
                 lines.removeFirst(lines.count - maxLines)
             }

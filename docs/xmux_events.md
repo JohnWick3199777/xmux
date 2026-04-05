@@ -136,8 +136,44 @@ The event panel:
 Currently documented and emitted:
 
 - `command.start`
+- `xmux.session.start`
+- `xmux.session.end`
+- `pi.session_start`
+- `pi.session_before_switch`
+- `pi.session_before_fork`
+- `pi.session_before_compact`
+- `pi.session_compact`
+- `pi.session_before_tree`
+- `pi.session_tree`
+- `pi.session_shutdown`
+- `pi.before_agent_start`
+- `pi.agent_start`
+- `pi.agent_end`
+- `pi.turn_start`
+- `pi.turn_end`
+- `pi.message_start`
+- `pi.message_update`
+- `pi.message_end`
+- `pi.tool_execution_start`
+- `pi.tool_execution_update`
+- `pi.tool_execution_end`
+- `pi.model_select`
 
-This is the first structured shell lifecycle event. More events can be added later without changing the transport.
+### Pi forwarded events
+
+When `pi` is launched from an xmux-managed shell, the injected `Resources/xmux/bin/pi` wrapper adds the bundled `Resources/xmux/extensions/pi-xmux-events.ts` extension.
+
+That extension forwards pi lifecycle, streaming, and tool execution events to `xmux.port` as JSON-RPC notifications whose method name is `pi.<event-type>`.
+
+Example events:
+
+```json
+{"jsonrpc":"2.0","method":"xmux.session.start","params":{"id":"44CB117A-25F5-4C0A-991F-EF4630EAB9E9","index":2}}
+{"jsonrpc":"2.0","method":"pi.session_start","params":{"terminal_id":"...","pid":12345,"session_file":"/Users/me/.pi/agent/sessions/.../session.jsonl","event":{"reason":"startup","previousSessionFile":null}}}
+{"jsonrpc":"2.0","method":"pi.message_update","params":{"terminal_id":"...","pid":12345,"session_file":"/Users/me/.pi/agent/sessions/.../session.jsonl","event":{"assistantMessageEvent":{"type":"text_delta","delta":"Hello"}}}}
+{"jsonrpc":"2.0","method":"pi.tool_execution_start","params":{"terminal_id":"...","pid":12345,"session_file":"/Users/me/.pi/agent/sessions/.../session.jsonl","event":{"toolName":"bash","args":{"command":"ls -la"}}}}
+```
+
 
 ## Design Notes
 

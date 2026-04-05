@@ -99,10 +99,16 @@ final class SessionManager: ObservableObject {
         if !session.pwd.isEmpty { payload["cwd"] = session.pwd }
         for (k, v) in extra { payload[k] = v }
 
-        let json = (try? JSONSerialization.data(withJSONObject: payload))
+        let message: [String: Any] = [
+            "jsonrpc": "2.0",
+            "method": name,
+            "params": payload,
+        ]
+
+        let json = (try? JSONSerialization.data(withJSONObject: message))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
 
-        XmuxEventPort.shared.emit("\(name)\t\(json)")
+        XmuxEventPort.shared.emit(json)
     }
 
     private func startRefreshing() {

@@ -191,6 +191,8 @@ xmux event show --once
 
 On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` calls `xmux log add "$cmd"` and `xmux event send --notify --param "command=$cmd" command.start`, which appends the human-readable log record and emits a live JSON-RPC event on `xmux.port`.
 
+The app also emits its own session lifecycle notifications on the same transport. For example, creating or closing a terminal session sends `xmux.session.start` / `xmux.session.end` as JSON-RPC notifications.
+
 ## xmux.port — live JSON-RPC event stream
 
 `xmux.port` is a Unix-domain socket at `~/.xmux/xmux.port`. The app accepts newline-delimited JSON messages on that socket, keeps a small in-memory ring buffer, mirrors those events into the live panel under the terminal, and forwards them to any `xmux event show` subscribers.
@@ -199,6 +201,7 @@ The intended shape is JSON-RPC notifications or requests, for example:
 
 ```json
 {"jsonrpc":"2.0","method":"command.start","params":{"command":"git status","terminal_id":"..."}}
+{"jsonrpc":"2.0","method":"xmux.session.start","params":{"id":"44CB117A-25F5-4C0A-991F-EF4630EAB9E9","index":2}}
 ```
 
 ### Live consumer
@@ -220,7 +223,10 @@ Sources/XmuxApp/
 Resources/xmux/
   bin/
     claude                        Claude wrapper — logs through `xmux log add`
+    pi                            Pi wrapper — logs launches and injects xmux pi event forwarding
     xmux-claude-hook              Claude hook bridge — logs through `xmux log add`
+  extensions/
+    pi-xmux-events.ts             Pi extension — forwards pi lifecycle/stream/tool events to `xmux.port`
   shell-integration/zsh/
     .zshenv                       ZDOTDIR injection entry point (chains to user's dotfiles)
     xmux-integration              preexec hook — calls `xmux log add` and emits `command.start`
@@ -251,7 +257,10 @@ Resources/
     xmux-integration              preexec hook — logs commands through the xmux CLI
   xmux/bin/
     claude                        wrapper that logs Claude invocations through xmux
+    pi                            wrapper that injects the xmux pi event-forwarding extension
     xmux-claude-hook              Claude lifecycle hook bridge
+  xmux/extensions/
+    pi-xmux-events.ts             pi extension that forwards pi events to xmux.port
 
 cli/
   pyproject.toml                  uv tool project definition for `uv tool install ./cli`
