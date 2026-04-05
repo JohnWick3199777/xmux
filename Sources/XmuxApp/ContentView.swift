@@ -10,6 +10,7 @@ private enum LayoutMetrics {
 /// Root layout: fixed left panel | terminal + live events | fixed right panel
 struct ContentView: View {
     @StateObject private var xmux = XmuxState()
+    @State private var selectedFileURL: URL?
 
     private var activeSessionPath: String {
         guard let id = xmux.activeSessionID,
@@ -21,7 +22,11 @@ struct ContentView: View {
 
     var body: some View {
         HSplitView {
-            GitView(activeSessionPath: activeSessionPath)
+            GitView(
+                activeSessionPath: activeSessionPath,
+                selectedFileURL: $selectedFileURL,
+                onOpenFile: { selectedFileURL = $0 }
+            )
                 .frame(
                     minWidth: LayoutMetrics.sidePanelMinWidth,
                     idealWidth: LayoutMetrics.sidePanelIdealWidth,
@@ -29,7 +34,7 @@ struct ContentView: View {
                     maxHeight: .infinity
                 )
 
-            MainTerminalColumn(xmux: xmux)
+            MainTerminalColumn(xmux: xmux, selectedFileURL: $selectedFileURL)
                 .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
 
@@ -79,6 +84,8 @@ struct GitView: View {
     }
 
     let activeSessionPath: String
+    @Binding var selectedFileURL: URL?
+    let onOpenFile: (URL) -> Void
 
     @State private var repoRoot: URL?
     @State private var tree: [FileTreeNode] = []
@@ -124,7 +131,15 @@ struct GitView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(tree) { node in
-                            FileTreeRow(node: node, rootURL: repoRoot, depth: 0, visibleRelativePaths: visibleRelativePaths, expandedPaths: $expandedPaths)
+                            FileTreeRow(
+                                node: node,
+                                rootURL: repoRoot,
+                                depth: 0,
+                                visibleRelativePaths: visibleRelativePaths,
+                                selectedFileURL: $selectedFileURL,
+                                expandedPaths: $expandedPaths,
+                                onOpenFile: onOpenFile
+                            )
                         }
                     }
                     .padding(.bottom, 8)
@@ -168,6 +183,11 @@ struct GitView: View {
         repoRoot = root
         repoDetails = GitRepositoryInspector.repoDetails(rootURL: root)
 
+        if let selectedFileURL,
+           !selectedFileURL.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path) {
+            self.selectedFileURL = nil
+        }
+
         let filter = GitTreeFilterResolver.resolve(for: mode, rootURL: root)
         visibleRelativePaths = filter.visibleRelativePaths
         tree = FileTreeBuilder.makeChildren(of: root, rootURL: root, visibleRelativePaths: filter.visibleRelativePaths)
@@ -196,7 +216,10 @@ private struct FileTreeRow: View {
     let depth: Int
     let visibleRelativePaths: Set<String>?
 
+    @Binding var selectedFileURL: URL?
     @Binding var expandedPaths: Set<String>
+
+    let onOpenFile: (URL) -> Void
 
     private var isExpanded: Bool {
         expandedPaths.contains(node.id)
@@ -204,7 +227,7 @@ private struct FileTreeRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button(action: toggleExpanded) {
+            Button(action: handleTap) {
                 HStack(spacing: 6) {
                     Image(systemName: disclosureSymbol)
                         .font(.system(size: 10, weight: .semibold))
@@ -216,6 +239,7 @@ private struct FileTreeRow: View {
 
                     Text(node.name)
                         .lineLimit(1)
+                        .foregroundStyle(isSelected ? terminalPanelForeground : terminalPanelSecondaryForeground)
 
                     Spacer(minLength: 0)
                 }
@@ -228,10 +252,22 @@ private struct FileTreeRow: View {
 
             if isExpanded, node.isDirectory {
                 ForEach(FileTreeBuilder.makeChildren(of: node.url, rootURL: rootURL, visibleRelativePaths: visibleRelativePaths)) { child in
-                    FileTreeRow(node: child, rootURL: rootURL, depth: depth + 1, visibleRelativePaths: visibleRelativePaths, expandedPaths: $expandedPaths)
+                    FileTreeRow(
+                        node: child,
+                        rootURL: rootURL,
+                        depth: depth + 1,
+                        visibleRelativePaths: visibleRelativePaths,
+                        selectedFileURL: $selectedFileURL,
+                        expandedPaths: $expandedPaths,
+                        onOpenFile: onOpenFile
+                    )
                 }
             }
         }
+    }
+
+    private var isSelected: Bool {
+        selectedFileURL?.standardizedFileURL == node.url.standardizedFileURL
     }
 
     private var disclosureSymbol: String {
@@ -239,13 +275,18 @@ private struct FileTreeRow: View {
         return isExpanded ? "chevron.down" : "chevron.right"
     }
 
-    private func toggleExpanded() {
-        guard node.isDirectory else { return }
-        if isExpanded {
-            expandedPaths.remove(node.id)
-        } else {
-            expandedPaths.insert(node.id)
+    private func handleTap() {
+        if node.isDirectory {
+            if isExpanded {
+                expandedPaths.remove(node.id)
+            } else {
+                expandedPaths.insert(node.id)
+            }
+            return
         }
+
+        selectedFileURL = node.url
+        onOpenFile(node.url)
     }
 }
 
@@ -499,20 +540,31 @@ private enum FileTreeBuilder {
 
 struct MainTerminalColumn: View {
     @ObservedObject var xmux: XmuxState
+    @Binding var selectedFileURL: URL?
 
     var body: some View {
         VSplitView {
-            // All terminal surfaces live in the hierarchy simultaneously.
-            // Only the active one is visible; others are hidden so their
-            // ghostty_surface_t stays alive without resetting the session.
-            ZStack {
-                ForEach(xmux.sessions) { session in
-                    TerminalRepresentable(
-                        terminalID: session.id,
-                        isActive: session.id == xmux.activeSessionID
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HSplitView {
+                if let selectedFileURL {
+                    FilePreviewPane(fileURL: selectedFileURL) {
+                        self.selectedFileURL = nil
+                    }
+                    .frame(minWidth: 260, idealWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
                 }
+
+                // All terminal surfaces live in the hierarchy simultaneously.
+                // Only the active one is visible; others are hidden so their
+                // ghostty_surface_t stays alive without resetting the session.
+                ZStack {
+                    ForEach(xmux.sessions) { session in
+                        TerminalRepresentable(
+                            terminalID: session.id,
+                            isActive: session.id == xmux.activeSessionID
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -523,9 +575,98 @@ struct MainTerminalColumn: View {
     }
 }
 
+private struct FilePreviewPane: View {
+    let fileURL: URL
+    let onClose: () -> Void
+
+    @State private var fileContent = ""
+    @State private var loadError: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(fileURL.lastPathComponent)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(terminalPanelForeground)
+                        .lineLimit(1)
+
+                    Text(fileURL.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(terminalPanelSecondaryForeground)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(terminalPanelSecondaryForeground)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider().background(Color.white.opacity(0.08))
+
+            Group {
+                if let loadError {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Could not open file", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                        Text(loadError)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(terminalPanelSecondaryForeground)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    ScrollView([.horizontal, .vertical]) {
+                        Text(fileContent)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(terminalPanelForeground)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .padding(12)
+                    }
+                }
+            }
+            .background(terminalBackground.opacity(0.92))
+        }
+        .background(terminalBackground)
+        .task(id: fileURL.path) {
+            await loadFile()
+        }
+    }
+
+    private func loadFile() async {
+        do {
+            let content = try String(contentsOf: fileURL, encoding: .utf8)
+            await MainActor.run {
+                fileContent = content
+                loadError = nil
+            }
+        } catch {
+            await MainActor.run {
+                fileContent = ""
+                loadError = error.localizedDescription
+            }
+        }
+    }
+}
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        GitView(activeSessionPath: FileManager.default.currentDirectoryPath)
-            .previewDisplayName("GitView")
+        GitView(
+            activeSessionPath: FileManager.default.currentDirectoryPath,
+            selectedFileURL: .constant(nil),
+            onOpenFile: { _ in }
+        )
+        .previewDisplayName("GitView")
     }
 }
