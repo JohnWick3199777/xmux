@@ -1,48 +1,73 @@
 import SwiftUI
 
-/// Root layout: left sidebar | terminal + live log | right sidebar
+private enum LayoutMetrics {
+    static let sidePanelMinWidth: CGFloat = 160
+    static let sidePanelIdealWidth: CGFloat = 220
+    static let sidePanelMaxWidth: CGFloat = 320
+}
+
+/// Root layout: fixed left panel | terminal + live log | fixed right panel
 struct ContentView: View {
     @State private var terminalID = UUID()
 
     var body: some View {
-        NavigationSplitView(
-            sidebar: { LeftPanel() },
-            content: { MainTerminalColumn(terminalID: terminalID) },
-            detail: { WorkspaceInspectorPanel() }
-        )
-        .navigationSplitViewStyle(.balanced)
+        HSplitView {
+            LeftPanel()
+                .frame(
+                    minWidth: LayoutMetrics.sidePanelMinWidth,
+                    idealWidth: LayoutMetrics.sidePanelIdealWidth,
+                    maxWidth: LayoutMetrics.sidePanelMaxWidth,
+                    maxHeight: .infinity
+                )
+
+            MainTerminalColumn(terminalID: terminalID)
+                .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+                .layoutPriority(1)
+
+            WorkspaceInspectorPanel()
+                .frame(
+                    minWidth: LayoutMetrics.sidePanelMinWidth,
+                    idealWidth: LayoutMetrics.sidePanelIdealWidth,
+                    maxWidth: LayoutMetrics.sidePanelMaxWidth,
+                    maxHeight: .infinity
+                )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .toolbarBackground(terminalBackground, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
+        .toolbarColorScheme(.dark, for: .windowToolbar)
     }
 }
 
 // MARK: - Left Panel
 
+let terminalBackground = Color(red: 40/255, green: 44/255, blue: 52/255)
+let terminalPanelForeground = Color.white.opacity(0.94)
+let terminalPanelSecondaryForeground = Color.white.opacity(0.6)
+
 struct LeftPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Navigator")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-
-            Divider()
-
             List {
                 Label("Files", systemImage: "folder")
+                    .listRowBackground(terminalBackground)
                 Label("Branches", systemImage: "arrow.triangle.branch")
+                    .listRowBackground(terminalBackground)
                 Label("Sessions", systemImage: "terminal")
+                    .listRowBackground(terminalBackground)
             }
             .listStyle(.sidebar)
+            .foregroundStyle(terminalPanelForeground)
+            .scrollContentBackground(.hidden)
+            .background(terminalBackground)
 
             Spacer()
         }
-        .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
+        .background(terminalBackground)
     }
 }
 
 // MARK: - Right Panel
-
-let terminalBackground = Color(red: 40/255, green: 44/255, blue: 52/255)
 
 struct MainTerminalColumn: View {
     let terminalID: UUID
@@ -74,13 +99,13 @@ struct WorkspaceInspectorPanel: View {
                     .listRowBackground(terminalBackground)
             }
             .listStyle(.sidebar)
+            .foregroundStyle(terminalPanelForeground)
             .scrollContentBackground(.hidden)
             .background(terminalBackground)
 
             Spacer()
         }
         .background(terminalBackground)
-        .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 260)
     }
 }
 

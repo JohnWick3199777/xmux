@@ -7,11 +7,11 @@ struct XmuxApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("xmux") {
             ContentView()
                 .frame(minWidth: 900, minHeight: 600)
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
