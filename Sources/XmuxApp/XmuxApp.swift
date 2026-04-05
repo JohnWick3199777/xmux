@@ -4,6 +4,7 @@ import SwiftUI
 struct XmuxApp: App {
     init() {
         XmuxLog.shared.setup()
+        XmuxEventPort.shared.setup()
     }
 
     var body: some Scene {

@@ -6,7 +6,7 @@ private enum LayoutMetrics {
     static let sidePanelMaxWidth: CGFloat = 320
 }
 
-/// Root layout: fixed left panel | terminal + live log | fixed right panel
+/// Root layout: fixed left panel | terminal + live log/events | fixed right panel
 struct ContentView: View {
     @State private var terminalID = UUID()
 
@@ -77,8 +77,14 @@ struct MainTerminalColumn: View {
             TerminalRepresentable(terminalID: terminalID)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            XmuxLogPanel()
-                .frame(minHeight: 150, idealHeight: 190, maxHeight: 280)
+            HSplitView {
+                XmuxLogPanel()
+                    .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
+
+                XmuxEventPanel()
+                    .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(minHeight: 150, idealHeight: 190, maxHeight: 280)
         }
         .background(terminalBackground)
     }

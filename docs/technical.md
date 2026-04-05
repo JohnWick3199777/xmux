@@ -153,13 +153,14 @@ Example:
 
 ### How it works
 
-**App startup** — `XmuxLog.setup()` creates `~/.xmux/` and `~/.xmux/xmux.log` if they do not exist. Failures are silent so missing log permissions never affect the app.
+**App startup** — `XmuxLog.setup()` creates `~/.xmux/` and `~/.xmux/xmux.log` if they do not exist. `XmuxEventPort.setup()` reserves `~/.xmux/xmux.port` and starts the local Unix-domain socket listener for live events. Failures are silent so missing log or socket permissions never affect the app.
 
 **Surface creation** — `GhosttyApp.newSurface` injects the following env vars into every spawned shell process via `ghostty_surface_config_s.env_vars`:
 
 | Variable | Value |
 |---|---|
 | `XMUX_LOG` | absolute path to `xmux.log` |
+| `XMUX_PORT` | absolute path to `xmux.port` |
 | `XMUX_RESOURCES_DIR` | path to bundled `xmux/` resources in the app bundle |
 | `ZDOTDIR` | `<resources>/shell-integration/zsh/` |
 | `_XMUX_ORIG_ZDOTDIR` | original `ZDOTDIR` (or empty) |
@@ -173,17 +174,32 @@ The first commands are:
 xmux log add "git status"
 xmux log show
 xmux log show --once
+xmux event send --notify --param "command=git status" command.start
+xmux event show
+xmux event show --once
 ```
 
 `xmux log <data>` is also accepted as shorthand for `xmux log add <data>`.
 `xmux log show` tails the log live; `--once` prints a snapshot and exits.
+`xmux event send` writes newline-delimited JSON-RPC messages to `xmux.port`.
+`xmux event show` connects to `xmux.port` and streams the live event feed.
 
 **Shell integration (zsh)** — ZDOTDIR injection causes zsh to load `shell-integration/zsh/.zshenv` before any user dotfile. That file:
 1. Restores `ZDOTDIR` to the original value so `.zprofile`, `.zshrc`, etc. are found in the user's usual location.
 2. Sources the user's original `.zshenv` if it exists.
 3. Queues `_xmux_load_integration` via `precmd_functions` (runs once, after `.zshrc`).
 
-On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` calls `xmux log add "$cmd"`, which appends `timestamp\tcommand` to the log.
+On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` calls `xmux log add "$cmd"` and `xmux event send --notify --param "command=$cmd" command.start`, which appends the human-readable log record and emits a live JSON-RPC event on `xmux.port`.
+
+## xmux.port — live JSON-RPC event stream
+
+`xmux.port` is a Unix-domain socket at `~/.xmux/xmux.port`. The app accepts newline-delimited JSON messages on that socket, keeps a small in-memory ring buffer, mirrors those events into the live panel under the terminal, and forwards them to any `xmux event show` subscribers.
+
+The intended shape is JSON-RPC notifications or requests, for example:
+
+```json
+{"jsonrpc":"2.0","method":"command.start","params":{"command":"git status","terminal_id":"..."}}
+```
 
 ### Live consumer
 
@@ -198,6 +214,8 @@ python3 tools/watch_log.py
 ```
 Sources/XmuxApp/
   XmuxLog.swift                   log file lifecycle + surface env var injection helper
+  XmuxEventPort.swift             `xmux.port` Unix socket listener + in-memory event ring buffer
+  XmuxEventPanel.swift            live panel for `xmux.port` event traffic
 
 Resources/xmux/
   bin/
@@ -205,7 +223,7 @@ Resources/xmux/
     xmux-claude-hook              Claude hook bridge — logs through `xmux log add`
   shell-integration/zsh/
     .zshenv                       ZDOTDIR injection entry point (chains to user's dotfiles)
-    xmux-integration              preexec hook — calls `xmux log add`
+    xmux-integration              preexec hook — calls `xmux log add` and emits `command.start`
 
 tools/
   watch_log.py                    live log consumer (tails ~/.xmux/xmux.log)
@@ -218,6 +236,8 @@ Sources/XmuxApp/
   XmuxApp.swift                   @main, window scene
   ContentView.swift               NavigationSplitView layout
   XmuxLog.swift                   ~/.xmux/xmux.log lifecycle + surface env var injection
+  XmuxEventPort.swift             ~/.xmux/xmux.port listener + event ring buffer
+  XmuxEventPanel.swift            live xmux.port panel
   Ghostty/
     GhosttyApp.swift              ghostty_app_t wrapper, C callbacks, clipboard
     GhosttyView.swift             ghostty_surface_t NSView, keyboard/mouse/IME

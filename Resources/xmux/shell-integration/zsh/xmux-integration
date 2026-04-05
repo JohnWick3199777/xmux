@@ -9,6 +9,16 @@ _xmux_preexec() {
     local cmd="$1"
     [[ -z "$cmd" ]] && return
     command xmux log add -- "$cmd" >/dev/null 2>&1 || true
+    if [[ -n "${XMUX_TERMINAL_ID:-}" ]]; then
+        command xmux event send --notify \
+            --param "command=$cmd" \
+            --param "terminal_id=$XMUX_TERMINAL_ID" \
+            command.start >/dev/null 2>&1 || true
+    else
+        command xmux event send --notify \
+            --param "command=$cmd" \
+            command.start >/dev/null 2>&1 || true
+    fi
 }
 
 typeset -ag preexec_functions

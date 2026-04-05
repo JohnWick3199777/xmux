@@ -106,7 +106,7 @@ final class GhosttyApp {
         let uvToolBinDir = (NSHomeDirectory() as NSString).appendingPathComponent(".local/bin")
         let currentPath = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/local/bin:/usr/bin:/bin"
 
-        let pairs: [(String, String)] = [
+        var pairs: [(String, String)] = [
             ("XMUX_LOG", logPath),
             ("XMUX_RESOURCES_DIR", resourcesDir),
             ("XMUX_CLAUDE_HOOK", hookScript),
@@ -115,6 +115,9 @@ final class GhosttyApp {
             ("XMUX_TERMINAL_ID", terminalID?.uuidString ?? ""),
             ("PATH", "\(binDir):\(uvToolBinDir):\(currentPath)"),
         ]
+        if let portPath = XmuxEventPort.shared.path, !portPath.isEmpty {
+            pairs.append(("XMUX_PORT", portPath))
+        }
 
         let keys   = pairs.map { strdup($0.0) }
         let values = pairs.map { strdup($0.1) }

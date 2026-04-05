@@ -4,29 +4,29 @@ A native macOS terminal built on [libghostty](https://github.com/ghostty-org/gho
 
 ## What it is
 
-Xmux is a terminal application with a fixed multi-pane layout: a navigator sidebar on the left, a full terminal in the centre, a live tail of `~/.xmux/xmux.log` directly under that terminal, and an inspector panel on the right. The terminal is rendered entirely by libghostty using Metal — the same engine that powers Ghostty itself.
+Xmux is a terminal application with a fixed multi-pane layout: a navigator sidebar on the left, a full terminal in the centre, a live tail of `~/.xmux/xmux.log` and a live `~/.xmux/xmux.port` event feed directly under that terminal, and an inspector panel on the right. The terminal is rendered entirely by libghostty using Metal — the same engine that powers Ghostty itself.
 
 The goal is a purpose-built macOS terminal with a native IDE-like shell, designed around how developers actually use terminals alongside code, agents, and tooling.
 
 ## Layout
 
 ```
-┌──────────┬────────────────────────┬──────────┐
-│          │       Terminal         │          │
-│Navigator │    (libghostty/Metal)  │Inspector │
-│          ├────────────────────────┤          │
-│          │     Live xmux.log      │          │
-└──────────┴────────────────────────┴──────────┘
+┌──────────┬────────────────────────────────────┬──────────┐
+│          │             Terminal              │          │
+│Navigator │        (libghostty/Metal)         │Inspector │
+│          ├──────────────────┬─────────────────┤          │
+│          │  Live xmux.log   │ Live xmux.port │          │
+└──────────┴──────────────────┴─────────────────┴──────────┘
 ```
 
 - **Left panel** — navigator: file tree, branches, sessions
 - **Centre** — terminal surface: full GPU-rendered terminal via libghostty
-- **Bottom centre** — live `xmux.log` output
+- **Bottom centre** — live `xmux.log` output and live `xmux.port` events
 - **Right panel** — inspector placeholders
 
 ## Status
 
-This is still a skeleton. The terminal is fully functional (PTY, keyboard, mouse, IME, scrollback), and the live log panel is wired up under the main terminal. Most inspector and navigator panels are still placeholders.
+This is still a skeleton. The terminal is fully functional (PTY, keyboard, mouse, IME, scrollback), and the live log/event panels are wired up under the main terminal. Most inspector and navigator panels are still placeholders.
 
 ## Building
 
