@@ -37,6 +37,10 @@ targets:
           if [ -d "${SRCROOT}/Resources/terminfo" ]; then
             cp -R "${SRCROOT}/Resources/terminfo" "$RESOURCES_DIR/"
           fi
+          # Copy xmux shell integration scripts
+          if [ -d "${SRCROOT}/Resources/xmux" ]; then
+            cp -R "${SRCROOT}/Resources/xmux" "$RESOURCES_DIR/"
+          fi
     info:
       path: Sources/XmuxApp/Info.plist
     settings:

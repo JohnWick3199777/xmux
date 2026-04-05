@@ -132,12 +132,76 @@ if action.tag == GHOSTTY_ACTION_SET_TITLE, let ptr = action.action.set_title.tit
 Task { @MainActor in self.handleAction(..., title: title) }
 ```
 
+## xmux.log — command event log
+
+Every interactive command typed in an xmux terminal is appended to `~/.xmux/xmux.log` as a newline-delimited record. This is the first-stage transport for issue #1.
+
+### Log format
+
+Each line is tab-separated:
+
+```
+<ISO 8601 UTC timestamp>\t<command as typed>
+```
+
+Example:
+
+```
+2026-04-05T09:30:12Z	git status
+2026-04-05T09:30:15Z	ls && ls -la
+```
+
+### How it works
+
+**App startup** — `XmuxLog.setup()` creates `~/.xmux/` and `~/.xmux/xmux.log` if they do not exist. Failures are silent so missing log permissions never affect the app.
+
+**Surface creation** — `GhosttyApp.newSurface` injects the following env vars into every spawned shell process via `ghostty_surface_config_s.env_vars`:
+
+| Variable | Value |
+|---|---|
+| `XMUX_LOG` | absolute path to `xmux.log` |
+| `XMUX_RESOURCES_DIR` | path to bundled `xmux/` resources in the app bundle |
+| `ZDOTDIR` | `<resources>/shell-integration/zsh/` |
+| `_XMUX_ORIG_ZDOTDIR` | original `ZDOTDIR` (or empty) |
+| `XMUX_TERMINAL_ID` | UUID of the surface |
+
+**Shell integration (zsh)** — ZDOTDIR injection causes zsh to load `shell-integration/zsh/.zshenv` before any user dotfile. That file:
+1. Restores `ZDOTDIR` to the original value so `.zprofile`, `.zshrc`, etc. are found in the user's usual location.
+2. Sources the user's original `.zshenv` if it exists.
+3. Queues `_xmux_load_integration` via `precmd_functions` (runs once, after `.zshrc`).
+
+On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` appends `timestamp\tcommand` to `$XMUX_LOG`.
+
+### Live consumer
+
+`tools/watch_log.py` tails the log and prints new lines as they arrive:
+
+```
+python3 tools/watch_log.py
+```
+
+### File structure additions
+
+```
+Sources/XmuxApp/
+  XmuxLog.swift                   log file lifecycle + surface env var injection helper
+
+Resources/xmux/
+  shell-integration/zsh/
+    .zshenv                       ZDOTDIR injection entry point (chains to user's dotfiles)
+    xmux-integration              preexec hook — appends timestamp + command to XMUX_LOG
+
+tools/
+  watch_log.py                    live log consumer (tails ~/.xmux/xmux.log)
+```
+
 ## File structure
 
 ```
 Sources/XmuxApp/
   XmuxApp.swift                   @main, window scene
   ContentView.swift               NavigationSplitView layout
+  XmuxLog.swift                   ~/.xmux/xmux.log lifecycle + surface env var injection
   Ghostty/
     GhosttyApp.swift              ghostty_app_t wrapper, C callbacks, clipboard
     GhosttyView.swift             ghostty_surface_t NSView, keyboard/mouse/IME
@@ -146,9 +210,15 @@ Sources/XmuxApp/
 Resources/
   terminfo/78/xterm-ghostty       sentinel file — libghostty locates resources dir from this
   ghostty/shell-integration/      bash/zsh/fish scripts injected by libghostty into shells
+  xmux/shell-integration/zsh/
+    .zshenv                       ZDOTDIR injection entry point
+    xmux-integration              preexec hook — logs commands to xmux.log
 
 Frameworks/
   GhosttyKit.xcframework          prebuilt static lib + C headers (git-ignored, download separately)
+
+tools/
+  watch_log.py                    live tail of ~/.xmux/xmux.log
 
 project.yml                       XcodeGen spec
 pixi.toml                         build tasks

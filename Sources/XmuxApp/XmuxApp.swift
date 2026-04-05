@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct XmuxApp: App {
+    init() {
+        XmuxLog.shared.setup()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

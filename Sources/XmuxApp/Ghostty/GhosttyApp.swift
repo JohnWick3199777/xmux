@@ -8,8 +8,9 @@ import GhosttyKit
 final class GhosttyApp {
     static let shared = GhosttyApp()
 
-    nonisolated(unsafe) private(set) var app: ghostty_app_t?
-    nonisolated(unsafe) private var config: ghostty_config_t?
+    @ObservationIgnored nonisolated(unsafe) private(set) var app: ghostty_app_t?
+    @ObservationIgnored nonisolated(unsafe) private var config: ghostty_config_t?
+    private var appearanceObserver: NSKeyValueObservation?
 
     // MARK: - Init
 
@@ -32,7 +33,7 @@ final class GhosttyApp {
         rt.supports_selection_clipboard = false
         rt.wakeup_cb = { ud in GhosttyApp.wakeupCallback(ud) }
         rt.action_cb = { app, target, action in GhosttyApp.actionCallback(app, target: target, action: action) }
-        rt.read_clipboard_cb = { ud, loc, state in GhosttyApp.readClipboardCallback(ud, location: loc, state: state) }
+        rt.read_clipboard_cb = { ud, loc, state in _ = GhosttyApp.readClipboardCallback(ud, location: loc, state: state) }
         rt.confirm_read_clipboard_cb = nil
         rt.write_clipboard_cb = { ud, loc, content, len, confirm in
             GhosttyApp.writeClipboardCallback(ud, location: loc, content: content, len: len, confirm: confirm)
@@ -47,11 +48,12 @@ final class GhosttyApp {
         print("[Ghostty] initialized")
 
         // Track system appearance for dark/light theme
-        NSApplication.shared.observe(\.effectiveAppearance, options: [.new, .initial]) { _, change in
+        nonisolated(unsafe) let capturedApp = ghosttyApp
+        appearanceObserver = NSApplication.shared.observe(\.effectiveAppearance, options: [.new, .initial]) { _, change in
             guard let appearance = change.newValue else { return }
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             let scheme: ghostty_color_scheme_e = isDark ? GHOSTTY_COLOR_SCHEME_DARK : GHOSTTY_COLOR_SCHEME_LIGHT
-            ghostty_app_set_color_scheme(ghosttyApp, scheme)
+            ghostty_app_set_color_scheme(capturedApp, scheme)
         }
     }
 
@@ -69,7 +71,7 @@ final class GhosttyApp {
 
     // MARK: - Surface creation
 
-    func newSurface(in view: NSView) -> ghostty_surface_t? {
+    func newSurface(in view: NSView, terminalID: UUID? = nil) -> ghostty_surface_t? {
         guard let app else { return nil }
         var cfg = ghostty_surface_config_new()
         cfg.platform_tag = GHOSTTY_PLATFORM_MACOS
@@ -78,9 +80,48 @@ final class GhosttyApp {
         cfg.scale_factor = Double(view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
         cfg.font_size = 0 // use config default
         cfg.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
-        let surface = ghostty_surface_new(app, &cfg)
+        let surface = withXmuxEnvVars(terminalID: terminalID) { envPtr, envCount in
+            cfg.env_vars = envPtr
+            cfg.env_var_count = envCount
+            return ghostty_surface_new(app, &cfg)
+        }
         if surface == nil { print("[Ghostty] ghostty_surface_new failed") }
         return surface
+    }
+
+    private func withXmuxEnvVars<T>(
+        terminalID: UUID?,
+        _ body: (UnsafeMutablePointer<ghostty_env_var_s>?, Int) -> T
+    ) -> T {
+        let log = XmuxLog.shared
+        guard let logPath = log.path, let resourcesDir = log.resourcesDir else {
+            return body(nil, 0)
+        }
+
+        let zdotdir = (resourcesDir as NSString).appendingPathComponent("shell-integration/zsh")
+        let origZdotdir = ProcessInfo.processInfo.environment["ZDOTDIR"] ?? ""
+
+        let pairs: [(String, String)] = [
+            ("XMUX_LOG", logPath),
+            ("XMUX_RESOURCES_DIR", resourcesDir),
+            ("ZDOTDIR", zdotdir),
+            ("_XMUX_ORIG_ZDOTDIR", origZdotdir),
+            ("XMUX_TERMINAL_ID", terminalID?.uuidString ?? ""),
+        ]
+
+        let keys   = pairs.map { strdup($0.0) }
+        let values = pairs.map { strdup($0.1) }
+        defer {
+            keys.forEach   { free($0) }
+            values.forEach { free($0) }
+        }
+
+        var envVars = (0..<pairs.count).map { i in
+            ghostty_env_var_s(key: keys[i], value: values[i])
+        }
+        return envVars.withUnsafeMutableBufferPointer { buf in
+            body(buf.baseAddress, buf.count)
+        }
     }
 
     // MARK: - Callbacks

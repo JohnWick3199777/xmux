@@ -42,7 +42,7 @@ final class GhosttyView: NSView, @preconcurrency NSTextInputClient {
 
     func createSurface() {
         guard surface == nil else { return }
-        surface = GhosttyApp.shared.newSurface(in: self)
+        surface = GhosttyApp.shared.newSurface(in: self, terminalID: terminalID)
         guard let surface else { return }
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
         ghostty_surface_set_content_scale(surface, scale, scale)
