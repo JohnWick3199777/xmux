@@ -1,0 +1,63 @@
+#!/bin/sh
+# xmux pi wrapper
+#
+# When running inside an xmux terminal (XMUX_RESOURCES_DIR is set):
+#   - logs the normalized pi command line via the xmux CLI
+#   - injects an xmux event-forwarding pi extension so pi events are mirrored to XMUX_PORT
+#
+# Outside xmux, passes through to the real pi binary unchanged.
+# Never breaks normal pi usage.
+
+_self_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+
+_quote_arg() {
+    case "$1" in
+        "")
+            printf "''"
+            ;;
+        *[!A-Za-z0-9_./:=+-]*)
+            printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\''/g")"
+            ;;
+        *)
+            printf '%s' "$1"
+            ;;
+    esac
+}
+
+# Locate the real pi binary — skip our own directory to avoid recursion.
+_real_pi=""
+_old_IFS="$IFS"
+IFS=:
+for _dir in $PATH; do
+    [ -n "$_dir" ] || continue
+    [ "$_dir" = "$_self_dir" ] && continue
+    [ -x "$_dir/pi" ] || continue
+    _real_pi="$_dir/pi"
+    break
+done
+IFS="$_old_IFS"
+
+if [ -z "$_real_pi" ]; then
+    printf 'xmux: real pi binary not found in PATH\n' >&2
+    exit 127
+fi
+
+# Not inside xmux — pass through unchanged.
+if [ -z "$XMUX_RESOURCES_DIR" ]; then
+    exec "$_real_pi" "$@"
+fi
+
+# Log the actual pi command being launched.
+_command="pi"
+for _arg in "$@"; do
+    _command="$_command $(_quote_arg "$_arg")"
+done
+_log_entry="$(printf 'pi.command\t%s' "$_command")"
+command -v xmux >/dev/null 2>&1 && xmux log add "$_log_entry" >/dev/null 2>&1 || true
+
+_extension="${XMUX_RESOURCES_DIR}/extensions/pi-xmux-events.ts"
+if [ -f "$_extension" ]; then
+    exec "$_real_pi" --extension "$_extension" "$@"
+fi
+
+exec "$_real_pi" "$@"

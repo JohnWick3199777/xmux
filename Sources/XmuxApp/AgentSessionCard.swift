@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Sessions panel (right column)
 
 struct SessionsPanel: View {
-    @ObservedObject var sessions: SessionManager
+    @ObservedObject var xmux: XmuxState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,7 +23,7 @@ struct SessionsPanel: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(terminalPanelForeground)
             Spacer()
-            Button(action: { sessions.addSession() }) {
+            Button(action: { xmux.addSession() }) {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(terminalPanelForeground)
@@ -41,13 +41,13 @@ struct SessionsPanel: View {
     private var sessionList: some View {
         ScrollView {
             VStack(spacing: 4) {
-                ForEach(sessions.sessions) { session in
+                ForEach(xmux.sessions) { session in
                     SessionCard(
                         session: session,
-                        isActive: session.id == sessions.activeID,
-                        canClose: sessions.sessions.count > 1,
-                        onActivate: { sessions.activate(session.id) },
-                        onClose: { sessions.removeSession(session.id) }
+                        isActive: session.id == xmux.activeSessionID,
+                        canClose: xmux.sessions.count > 1,
+                        onActivate: { xmux.activateSession(session.id) },
+                        onClose: { xmux.closeSession(session.id) }
                     )
                 }
             }
@@ -59,7 +59,7 @@ struct SessionsPanel: View {
 // MARK: - Single session card
 
 struct SessionCard: View {
-    let session: TerminalSession
+    let session: XmuxSessionState
     let isActive: Bool
     let canClose: Bool
     let onActivate: () -> Void

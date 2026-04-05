@@ -8,7 +8,7 @@ private enum LayoutMetrics {
 
 /// Root layout: fixed left panel | terminal + live events | fixed right panel
 struct ContentView: View {
-    @StateObject private var sessionManager = SessionManager()
+    @StateObject private var xmux = XmuxState()
 
     var body: some View {
         HSplitView {
@@ -20,11 +20,11 @@ struct ContentView: View {
                     maxHeight: .infinity
                 )
 
-            MainTerminalColumn(sessionManager: sessionManager)
+            MainTerminalColumn(xmux: xmux)
                 .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
 
-            SessionsPanel(sessions: sessionManager)
+            SessionsPanel(xmux: xmux)
                 .frame(
                     minWidth: LayoutMetrics.sidePanelMinWidth,
                     idealWidth: LayoutMetrics.sidePanelIdealWidth,
@@ -70,7 +70,7 @@ struct LeftPanel: View {
 // MARK: - Main Terminal Column
 
 struct MainTerminalColumn: View {
-    @ObservedObject var sessionManager: SessionManager
+    @ObservedObject var xmux: XmuxState
 
     var body: some View {
         VSplitView {
@@ -78,10 +78,10 @@ struct MainTerminalColumn: View {
             // Only the active one is visible; others are hidden so their
             // ghostty_surface_t stays alive without resetting the session.
             ZStack {
-                ForEach(sessionManager.sessions) { session in
+                ForEach(xmux.sessions) { session in
                     TerminalRepresentable(
                         terminalID: session.id,
-                        isActive: session.id == sessionManager.activeID
+                        isActive: session.id == xmux.activeSessionID
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }

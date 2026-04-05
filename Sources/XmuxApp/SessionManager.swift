@@ -1,14 +1,26 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Session model
+// MARK: - Xmux GUI state
 
-struct TerminalSession: Identifiable {
-    enum PiStatus: String {
-        case idle
-        case working
+struct XmuxSessionState: Identifiable {
+    enum TerminalLifecycle: String {
+        case creating
+        case running
+        case closing
+        case closed
+    }
 
-        var label: String { rawValue }
+    enum ShellLifecycle: Equatable {
+        case booting
+        case ready
+        case executing(command: String)
+    }
+
+    enum AgentLifecycle: Equatable {
+        case none
+        case idle(sessionID: String?)
+        case working(sessionID: String?)
     }
 
     let id: UUID
@@ -16,8 +28,10 @@ struct TerminalSession: Identifiable {
     let startTime: Date
     var title: String = ""
     var pwd: String = ""
-    var piSessionID: String?
-    var piStatus: PiStatus?
+    var terminalLifecycle: TerminalLifecycle = .creating
+    var shellLifecycle: ShellLifecycle = .booting
+    var agentLifecycle: AgentLifecycle = .none
+    var lastEventAt: Date?
 
     /// Human-readable name: shell-reported title > last path component > fallback
     var displayName: String {
@@ -34,12 +48,33 @@ struct TerminalSession: Identifiable {
         if pwd.hasPrefix(home) { return "~" + pwd.dropFirst(home.count) }
         return pwd
     }
-}
 
-private struct PiSessionState {
-    var sessionID: String?
-    var status: TerminalSession.PiStatus?
-    var isAgentRunning = false
+    var piSessionID: String? {
+        switch agentLifecycle {
+        case .none:
+            return nil
+        case .idle(let sessionID), .working(let sessionID):
+            return sessionID
+        }
+    }
+
+    var piStatus: PiStatus? {
+        switch agentLifecycle {
+        case .none:
+            return nil
+        case .idle:
+            return .idle
+        case .working:
+            return .working
+        }
+    }
+
+    enum PiStatus: String {
+        case idle
+        case working
+
+        var label: String { rawValue }
+    }
 }
 
 private struct XmuxEventEnvelope {
@@ -54,24 +89,32 @@ private struct XmuxEventEnvelope {
     var sessionFile: String? {
         params["session_file"] as? String
     }
+
+    var command: String? {
+        params["command"] as? String
+    }
 }
 
-// MARK: - Session manager
-
 @MainActor
-final class SessionManager: ObservableObject {
-    @Published private(set) var sessions: [TerminalSession] = []
-    @Published private(set) var activeID: UUID
+final class XmuxState: ObservableObject {
+    enum AppPhase: String {
+        case launching
+        case running
+    }
 
-    private var counter = 0
+    @Published private(set) var sessions: [XmuxSessionState] = []
+    @Published private(set) var activeSessionID: UUID?
+    @Published private(set) var appPhase: AppPhase = .launching
+
     private var refreshTask: Task<Void, Never>?
 
     init() {
         let first = Self.makeSession(index: 1)
         sessions = [first]
-        activeID = first.id
+        activeSessionID = first.id
+        appPhase = .running
         startRefreshing()
-        // Defer so XmuxEventPort is fully set up before we emit
+        // Defer so XmuxEventPort is fully set up before we emit.
         Task { @MainActor [weak self] in
             self?.emitEvent("xmux.session.start", session: first)
         }
@@ -82,45 +125,53 @@ final class SessionManager: ObservableObject {
     // MARK: Public API
 
     func addSession() {
-        counter += 1
-        let s = Self.makeSession(index: sessions.count + 1)
-        sessions.append(s)
-        activeID = s.id
-        emitEvent("xmux.session.start", session: s)
+        let session = Self.makeSession(index: sessions.count + 1)
+        sessions.append(session)
+        activeSessionID = session.id
+        emitEvent("xmux.session.start", session: session)
     }
 
-    func activate(_ id: UUID) {
+    func activateSession(_ id: UUID) {
         guard sessions.contains(where: { $0.id == id }) else { return }
-        activeID = id
+        activeSessionID = id
     }
 
-    func removeSession(_ id: UUID) {
+    func closeSession(_ id: UUID) {
         guard sessions.count > 1 else { return }
         guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
 
-        let session = sessions[idx]
-        emitEvent("xmux.session.end", session: session,
-                  extra: ["duration": Int(Date().timeIntervalSince(session.startTime))])
+        var session = sessions[idx]
+        session.terminalLifecycle = .closing
+        sessions[idx] = session
 
-        // Clean up the Ghostty surface
+        emitEvent(
+            "xmux.session.end",
+            session: session,
+            extra: ["duration": Int(Date().timeIntervalSince(session.startTime))]
+        )
+
         GhosttyView.registry[id]?.closeSurface()
 
+        session.terminalLifecycle = .closed
         sessions.remove(at: idx)
 
-        if activeID == id {
-            // Prefer the session that was to the left, else the new last one
+        if activeSessionID == id {
             let newIdx = max(0, idx - 1)
-            activeID = sessions[newIdx].id
+            activeSessionID = sessions[newIdx].id
         }
+    }
+
+    func session(withID id: UUID) -> XmuxSessionState? {
+        sessions.first(where: { $0.id == id })
     }
 
     // MARK: Private
 
-    private static func makeSession(index: Int) -> TerminalSession {
-        TerminalSession(id: UUID(), index: index, startTime: Date())
+    private static func makeSession(index: Int) -> XmuxSessionState {
+        XmuxSessionState(id: UUID(), index: index, startTime: Date())
     }
 
-    private func emitEvent(_ name: String, session: TerminalSession, extra: [String: Any] = [:]) {
+    private func emitEvent(_ name: String, session: XmuxSessionState, extra: [String: Any] = [:]) {
         var payload: [String: Any] = [
             "id": session.id.uuidString,
             "index": session.index,
@@ -144,30 +195,69 @@ final class SessionManager: ObservableObject {
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 250_000_000)
-                self?.refreshMeta()
+                self?.refreshFromRuntime()
             }
         }
     }
 
-    /// Pull live pwd + title from GhosttyView registry and reconcile latest pi state.
-    private func refreshMeta() {
-        let piStates = latestPiStateByTerminalID()
+    /// Reconciles the single GUI state container from runtime sources.
+    private func refreshFromRuntime() {
+        let agentStates = latestAgentStateByTerminalID()
+        let shellStates = latestShellStateByTerminalID()
 
         for i in sessions.indices {
-            if let view = GhosttyView.registry[sessions[i].id] {
+            let id = sessions[i].id
+
+            if let view = GhosttyView.registry[id] {
                 sessions[i].title = view.title
                 sessions[i].pwd = view.pwd
+                sessions[i].terminalLifecycle = .running
             }
 
-            let piState = piStates[sessions[i].id]
-            sessions[i].piSessionID = piState?.sessionID
-            sessions[i].piStatus = piState?.status
+            if let shellState = shellStates[id] {
+                sessions[i].shellLifecycle = shellState
+            }
+
+            if let agentLifecycle = agentStates[id] {
+                sessions[i].agentLifecycle = agentLifecycle
+            } else {
+                sessions[i].agentLifecycle = .none
+            }
         }
     }
 
-    private func latestPiStateByTerminalID() -> [UUID: PiSessionState] {
+    private func latestShellStateByTerminalID() -> [UUID: XmuxSessionState.ShellLifecycle] {
         let snapshot = XmuxEventPort.shared.snapshot()
-        var states: [UUID: PiSessionState] = [:]
+        var states: [UUID: XmuxSessionState.ShellLifecycle] = [:]
+
+        for line in snapshot.lines {
+            guard let event = parseEventEnvelope(from: line.raw),
+                  let terminalID = event.terminalID else {
+                continue
+            }
+
+            switch event.method {
+            case "command.start":
+                let command = event.command ?? ""
+                states[terminalID] = .executing(command: command)
+            case "xmux.session.start":
+                if states[terminalID] == nil {
+                    states[terminalID] = .booting
+                }
+            default:
+                if states[terminalID] == nil {
+                    states[terminalID] = .ready
+                }
+            }
+        }
+
+        return states
+    }
+
+    private func latestAgentStateByTerminalID() -> [UUID: XmuxSessionState.AgentLifecycle] {
+        let snapshot = XmuxEventPort.shared.snapshot()
+        var states: [UUID: XmuxSessionState.AgentLifecycle] = [:]
+        var isAgentRunning: [UUID: Bool] = [:]
 
         for line in snapshot.lines {
             guard let event = parseEventEnvelope(from: line.raw),
@@ -176,20 +266,17 @@ final class SessionManager: ObservableObject {
                 continue
             }
 
-            var state = states[terminalID] ?? PiSessionState()
-
-            if let sessionID = extractPiSessionID(from: event.sessionFile) {
-                state.sessionID = sessionID
-            }
+            let sessionID = extractPiSessionID(from: event.sessionFile)
+            let currentlyRunning = isAgentRunning[terminalID] ?? false
 
             switch event.method {
             case "pi.before_agent_start", "pi.agent_start":
-                state.isAgentRunning = true
-                state.status = .working
+                isAgentRunning[terminalID] = true
+                states[terminalID] = .working(sessionID: sessionID ?? states[terminalID]?.sessionID)
 
             case "pi.agent_end":
-                state.isAgentRunning = false
-                state.status = .idle
+                isAgentRunning[terminalID] = false
+                states[terminalID] = .idle(sessionID: sessionID ?? states[terminalID]?.sessionID)
 
             case "pi.session_start",
                  "pi.session_before_switch",
@@ -199,8 +286,8 @@ final class SessionManager: ObservableObject {
                  "pi.session_before_tree",
                  "pi.session_tree",
                  "pi.model_select":
-                if !state.isAgentRunning {
-                    state.status = .idle
+                if !currentlyRunning {
+                    states[terminalID] = .idle(sessionID: sessionID ?? states[terminalID]?.sessionID)
                 }
 
             case "pi.turn_start",
@@ -208,29 +295,26 @@ final class SessionManager: ObservableObject {
                  "pi.message_update",
                  "pi.tool_execution_start",
                  "pi.tool_execution_update":
-                if state.isAgentRunning {
-                    state.status = .working
+                if currentlyRunning {
+                    states[terminalID] = .working(sessionID: sessionID ?? states[terminalID]?.sessionID)
                 }
 
             case "pi.turn_end",
                  "pi.message_end",
                  "pi.tool_execution_end":
-                if state.isAgentRunning {
-                    state.status = .working
+                if currentlyRunning {
+                    states[terminalID] = .working(sessionID: sessionID ?? states[terminalID]?.sessionID)
                 } else {
-                    state.status = .idle
+                    states[terminalID] = .idle(sessionID: sessionID ?? states[terminalID]?.sessionID)
                 }
 
             case "pi.session_shutdown":
-                state.status = nil
-                state.sessionID = nil
-                state.isAgentRunning = false
+                isAgentRunning[terminalID] = false
+                states[terminalID] = XmuxSessionState.AgentLifecycle.none
 
             default:
                 break
             }
-
-            states[terminalID] = state
         }
 
         return states
@@ -263,5 +347,16 @@ final class SessionManager: ObservableObject {
         }
 
         return fileName
+    }
+}
+
+private extension XmuxSessionState.AgentLifecycle {
+    var sessionID: String? {
+        switch self {
+        case .none:
+            return nil
+        case .idle(let sessionID), .working(let sessionID):
+            return sessionID
+        }
     }
 }

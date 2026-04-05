@@ -21,5 +21,21 @@ _xmux_preexec() {
     fi
 }
 
+# Shell functions beat PATH order, so use them to ensure xmux wrappers win
+# even if the user's shell config later rewrites PATH.
+if [[ -n "${XMUX_RESOURCES_DIR:-}" ]]; then
+    if [[ -x "${XMUX_RESOURCES_DIR}/bin/claude" ]]; then
+        claude() {
+            command "${XMUX_RESOURCES_DIR}/bin/claude" "$@"
+        }
+    fi
+    if [[ -x "${XMUX_RESOURCES_DIR}/bin/pi" ]]; then
+        pi() {
+            command "${XMUX_RESOURCES_DIR}/bin/pi" "$@"
+        }
+    fi
+    rehash 2>/dev/null || true
+fi
+
 typeset -ag preexec_functions
 preexec_functions+=(_xmux_preexec)
