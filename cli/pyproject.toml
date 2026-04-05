@@ -1,0 +1,14 @@
+[project]
+name = "xmux-cli"
+version = "0.1.0"
+description = "Command-line helpers for xmux-managed shells"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+xmux = "xmux_cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

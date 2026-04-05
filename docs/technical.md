@@ -165,12 +165,25 @@ Example:
 | `_XMUX_ORIG_ZDOTDIR` | original `ZDOTDIR` (or empty) |
 | `XMUX_TERMINAL_ID` | UUID of the surface |
 
+**Standalone CLI** — the Python CLI now lives in the top-level `cli/` directory and is meant to be installed separately with `uv tool install ./cli`. Xmux-launched shells prepend both `Resources/xmux/bin` and `~/.local/bin` to `PATH`, so the GUI-owned helper scripts can call the installed `xmux` executable.
+
+The first commands are:
+
+```bash
+xmux log add "git status"
+xmux log show
+xmux log show --once
+```
+
+`xmux log <data>` is also accepted as shorthand for `xmux log add <data>`.
+`xmux log show` tails the log live; `--once` prints a snapshot and exits.
+
 **Shell integration (zsh)** — ZDOTDIR injection causes zsh to load `shell-integration/zsh/.zshenv` before any user dotfile. That file:
 1. Restores `ZDOTDIR` to the original value so `.zprofile`, `.zshrc`, etc. are found in the user's usual location.
 2. Sources the user's original `.zshenv` if it exists.
 3. Queues `_xmux_load_integration` via `precmd_functions` (runs once, after `.zshrc`).
 
-On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` appends `timestamp\tcommand` to `$XMUX_LOG`.
+On the first prompt, `xmux-integration` is sourced. It registers `_xmux_preexec` in `preexec_functions`. Before each command runs, `_xmux_preexec` calls `xmux log add "$cmd"`, which appends `timestamp\tcommand` to the log.
 
 ### Live consumer
 
@@ -187,9 +200,12 @@ Sources/XmuxApp/
   XmuxLog.swift                   log file lifecycle + surface env var injection helper
 
 Resources/xmux/
+  bin/
+    claude                        Claude wrapper — logs through `xmux log add`
+    xmux-claude-hook              Claude hook bridge — logs through `xmux log add`
   shell-integration/zsh/
     .zshenv                       ZDOTDIR injection entry point (chains to user's dotfiles)
-    xmux-integration              preexec hook — appends timestamp + command to XMUX_LOG
+    xmux-integration              preexec hook — calls `xmux log add`
 
 tools/
   watch_log.py                    live log consumer (tails ~/.xmux/xmux.log)
@@ -212,7 +228,15 @@ Resources/
   ghostty/shell-integration/      bash/zsh/fish scripts injected by libghostty into shells
   xmux/shell-integration/zsh/
     .zshenv                       ZDOTDIR injection entry point
-    xmux-integration              preexec hook — logs commands to xmux.log
+    xmux-integration              preexec hook — logs commands through the xmux CLI
+  xmux/bin/
+    claude                        wrapper that logs Claude invocations through xmux
+    xmux-claude-hook              Claude lifecycle hook bridge
+
+cli/
+  pyproject.toml                  uv tool project definition for `uv tool install ./cli`
+  src/xmux_cli/                   CLI implementation
+  tests/test_cli.py               focused CLI tests
 
 Frameworks/
   GhosttyKit.xcframework          prebuilt static lib + C headers (git-ignored, download separately)

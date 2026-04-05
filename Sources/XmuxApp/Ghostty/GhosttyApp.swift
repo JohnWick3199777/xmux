@@ -101,12 +101,19 @@ final class GhosttyApp {
         let zdotdir = (resourcesDir as NSString).appendingPathComponent("shell-integration/zsh")
         let origZdotdir = ProcessInfo.processInfo.environment["ZDOTDIR"] ?? ""
 
+        let binDir = (resourcesDir as NSString).appendingPathComponent("bin")
+        let hookScript = (binDir as NSString).appendingPathComponent("xmux-claude-hook")
+        let uvToolBinDir = (NSHomeDirectory() as NSString).appendingPathComponent(".local/bin")
+        let currentPath = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/local/bin:/usr/bin:/bin"
+
         let pairs: [(String, String)] = [
             ("XMUX_LOG", logPath),
             ("XMUX_RESOURCES_DIR", resourcesDir),
+            ("XMUX_CLAUDE_HOOK", hookScript),
             ("ZDOTDIR", zdotdir),
             ("_XMUX_ORIG_ZDOTDIR", origZdotdir),
             ("XMUX_TERMINAL_ID", terminalID?.uuidString ?? ""),
+            ("PATH", "\(binDir):\(uvToolBinDir):\(currentPath)"),
         ]
 
         let keys   = pairs.map { strdup($0.0) }

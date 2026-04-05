@@ -34,5 +34,22 @@ final class XmuxLog {
         } catch {
             // Fail silently — log unavailability must not affect the app.
         }
+
+        ensureBinScriptsExecutable()
+    }
+
+    /// Ensures bundled shell scripts in `xmux/bin/` have execute permission.
+    /// Xcode strips execute bits from bundle resources, so we restore them at runtime.
+    private func ensureBinScriptsExecutable() {
+        guard let rsrc = resourcesDir else { return }
+        let binDir = (rsrc as NSString).appendingPathComponent("bin")
+        let scripts = ["claude", "xmux-claude-hook"]
+        for script in scripts {
+            let scriptPath = (binDir as NSString).appendingPathComponent(script)
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o755)],
+                ofItemAtPath: scriptPath
+            )
+        }
     }
 }

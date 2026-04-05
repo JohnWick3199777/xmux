@@ -2,16 +2,13 @@
 # Sourced once per interactive session via the ZDOTDIR injection mechanism.
 
 [[ -o interactive ]] || return 0
-[[ -n "$XMUX_LOG" ]] || return 0
+(( $+commands[xmux] )) || return 0
 (( ! $+functions[_xmux_preexec] )) || return 0  # already loaded
 
 _xmux_preexec() {
     local cmd="$1"
     [[ -z "$cmd" ]] && return
-    # Append tab-separated: timestamp<TAB>command
-    builtin printf '%s\t%s\n' \
-        "$(command date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        "$cmd" >> "$XMUX_LOG" 2>/dev/null
+    command xmux log add -- "$cmd" >/dev/null 2>&1 || true
 }
 
 typeset -ag preexec_functions

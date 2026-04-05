@@ -1,0 +1,19 @@
+#!/bin/sh
+# xmux-claude-hook <event>
+#
+# Called by Claude lifecycle hooks (configured in claude-settings.json).
+# Reads the hook JSON payload from stdin and appends it to the xmux log
+# through the xmux CLI:
+#
+#   <timestamp>  <TAB>  claude.<event>  <TAB>  <json-payload>
+#
+# Fails silently — must never interrupt a Claude session.
+
+event="${1:-unknown}"
+command -v xmux >/dev/null 2>&1 || exit 0
+
+payload=$(cat 2>/dev/null) || exit 0
+[ -n "$payload" ] || exit 0
+
+log_entry="$(printf 'claude.%s\t%s' "$event" "$payload")"
+xmux log add "$log_entry" >/dev/null 2>&1 || true

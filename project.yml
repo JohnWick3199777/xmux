@@ -37,7 +37,7 @@ targets:
           if [ -d "${SRCROOT}/Resources/terminfo" ]; then
             cp -R "${SRCROOT}/Resources/terminfo" "$RESOURCES_DIR/"
           fi
-          # Copy xmux shell integration scripts
+          # Copy xmux-specific wrappers, hook config, and shell integration layers
           if [ -d "${SRCROOT}/Resources/xmux" ]; then
             cp -R "${SRCROOT}/Resources/xmux" "$RESOURCES_DIR/"
           fi
